@@ -3,137 +3,452 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>X Team Leaderboard</title>
+<title>𝕏 Team Leaderboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 :root{--bg:#080810;--surface:#0f0f1a;--border:#1e1e30;--gold:#FFD700;--silver:#C0C0C0;--bronze:#CD7F32;--text:#e8e8f0;--muted:#555570;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;}
-.header{background:linear-gradient(180deg,#0d0d20 0%,var(--bg) 100%);border-bottom:1px solid var(--border);padding:28px 20px 20px;text-align:center;}
-.title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.2rem,9vw,3.8rem);letter-spacing:8px;color:var(--gold);}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--gold)}
+.header{background:linear-gradient(180deg,#0d0d20 0%,var(--bg) 100%);border-bottom:2px solid var(--gold);padding:24px 20px 16px;text-align:center;position:relative;}
+.title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,8vw,3.5rem);letter-spacing:8px;color:var(--gold);text-shadow:0 0 40px rgba(255,215,0,0.3);}
 .subtitle{font-size:10px;color:var(--muted);letter-spacing:4px;margin-top:4px;text-transform:uppercase;}
 .live-dot{display:inline-block;width:7px;height:7px;background:#00ff88;border-radius:50%;margin-right:6px;animation:pulse 2s infinite;}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(1.3)}}
 .stats-bar{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-bottom:1px solid var(--border);}
-.stat{padding:12px 6px;text-align:center;border-right:1px solid var(--border);}
+.stat{padding:10px 4px;text-align:center;border-right:1px solid var(--border);}
 .stat:last-child{border-right:none;}
-.stat-n{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;color:var(--gold);line-height:1;}
-.stat-l{font-size:8px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:2px;}
-.refresh-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);}
-.refresh-info{font-size:10px;color:var(--muted);}
-.refresh-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 14px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;border-radius:2px;}
-.tabs{display:flex;padding:14px 16px 0;gap:6px;overflow-x:auto;}
-.tab{padding:7px 14px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:2px;white-space:nowrap;}
-.tab.active{border-color:var(--gold);color:var(--gold);background:rgba(255,215,0,0.06);}
-.board{padding:12px 16px;display:flex;flex-direction:column;gap:8px;}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px;transition:all 0.25s;}
+.stat-n{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--gold);line-height:1;}
+.stat-l{font-size:7px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px;}
+.refresh-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);}
+.refresh-info{font-size:9px;color:var(--muted);}
+.refresh-btn{background:transparent;border:1px solid var(--gold);color:var(--gold);padding:5px 14px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;border-radius:2px;}
+.main-tabs{display:flex;padding:12px 16px 0;gap:6px;overflow-x:auto;border-bottom:1px solid var(--border);}
+.main-tab{padding:8px 16px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:2px;white-space:nowrap;transition:all 0.2s;margin-bottom:-1px;}
+.main-tab.active{border-color:var(--gold);color:var(--gold);background:rgba(255,215,0,0.06);border-bottom-color:var(--bg);}
+.sort-tabs{display:flex;padding:10px 16px 0;gap:6px;overflow-x:auto;}
+.sort-tab{padding:5px 12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px;white-space:nowrap;}
+.sort-tab.active{border-color:var(--gold);color:var(--gold);background:rgba(255,215,0,0.06);}
+.board{padding:10px 16px;display:flex;flex-direction:column;gap:6px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:12px;transition:all 0.25s;animation:slideIn 0.4s ease both;cursor:pointer;}
+@keyframes slideIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .card.gold{border-color:rgba(255,215,0,0.45);background:linear-gradient(100deg,rgba(255,215,0,0.07) 0%,var(--surface) 60%);}
 .card.silver{border-color:rgba(192,192,192,0.35);}
 .card.bronze{border-color:rgba(205,127,50,0.35);}
+.card:hover{transform:translateX(3px);}
 .card-row{display:flex;align-items:center;gap:10px;}
-.rank{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;min-width:40px;text-align:center;}
-.rank.r1{color:var(--gold);}
+.rank{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;min-width:36px;text-align:center;}
+.rank.r1{color:var(--gold);text-shadow:0 0 14px rgba(255,215,0,0.5);}
 .rank.r2{color:var(--silver);}
 .rank.r3{color:var(--bronze);}
 .rank.rn{color:#444460;}
-.avatar{width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid var(--border);background:#1a1a2e;display:flex;align-items:center;justify-content:center;}
+.avatar{width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid;}
 .avatar img{width:100%;height:100%;object-fit:cover;}
-.avatar-letter{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--gold);}
+.avatar-letter{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;}
 .info{flex:1;min-width:0;}
 .name{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.handle{font-size:9px;color:var(--muted);margin-top:1px;}
-.metrics{display:flex;gap:12px;align-items:center;flex-shrink:0;}
+.handle{font-size:9px;color:var(--muted);}
+.x-link{font-size:8px;color:#1d9bf0;text-decoration:none;letter-spacing:1px;}
+.metrics{display:flex;gap:10px;align-items:center;flex-shrink:0;}
 .metric{text-align:center;}
-.metric-v{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;line-height:1;}
-.metric-k{font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:1px;}
+.metric-v{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;line-height:1;}
+.metric-k{font-size:7px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:1px;}
 .metric-v.hi{color:var(--gold);}
-.score-tag{font-family:'Bebas Neue',sans-serif;font-size:0.9rem;padding:2px 8px;border:1px solid rgba(255,215,0,0.2);color:rgba(255,215,0,0.7);border-radius:2px;}
-.bar-track{height:2px;background:#1a1a2e;border-radius:2px;margin-top:10px;}
+.score-tag{font-family:'Bebas Neue',sans-serif;font-size:0.85rem;padding:2px 8px;border:1px solid rgba(255,215,0,0.2);color:rgba(255,215,0,0.7);border-radius:2px;}
+.daily-row{display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.daily-stat{flex:1;background:rgba(255,255,255,0.03);border-radius:2px;padding:4px;text-align:center;}
+.daily-v{font-family:'Bebas Neue',sans-serif;font-size:1rem;color:#00ff88;}
+.daily-k{font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.daily-v.negative{color:#ff4444;}
+.bar-track{height:2px;background:#1a1a2e;border-radius:2px;margin-top:8px;}
 .bar-fill{height:2px;border-radius:2px;transition:width 0.8s ease;}
-.loading{text-align:center;padding:60px 20px;}
-.spinner{width:36px;height:36px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:100;overflow-y:auto;}
+.modal-bg.open{display:block;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:8px;margin:20px 16px;padding:20px;position:relative;}
+.modal-close{position:absolute;top:12px;right:12px;background:transparent;border:1px solid var(--border);color:var(--muted);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;}
+.modal-header{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+.modal-avatar{width:60px;height:60px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;border:3px solid;}
+.modal-avatar img{width:100%;height:100%;object-fit:cover;}
+.modal-avatar-letter{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;}
+.modal-name{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;}
+.modal-handle{font-size:10px;color:var(--muted);}
+.modal-bio{font-size:10px;color:#888;line-height:1.6;margin-bottom:14px;padding:10px;background:rgba(255,255,255,0.02);border-radius:4px;border-left:2px solid var(--border);}
+.modal-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.modal-stat{background:rgba(255,255,255,0.03);border-radius:4px;padding:10px;text-align:center;}
+.modal-stat-v{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--gold);}
+.modal-stat-k{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.modal-daily-title{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+.modal-daily-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:14px;}
+.modal-daily-item{background:rgba(255,255,255,0.03);border-radius:4px;padding:8px;}
+.modal-daily-item-v{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:#00ff88;}
+.modal-daily-item-k{font-size:8px;color:var(--muted);text-transform:uppercase;}
+.visit-btn{display:block;text-align:center;background:rgba(29,155,240,0.1);border:1px solid rgba(29,155,240,0.3);color:#1d9bf0;padding:10px;border-radius:4px;text-decoration:none;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-family:'DM Mono',monospace;}
+.charts-section{padding:12px 16px;}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px;margin-bottom:12px;}
+.chart-title{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:2px;color:var(--gold);margin-bottom:10px;}
+.chart-box canvas{max-height:220px;}
+.awards-section{padding:12px 16px;}
+.award-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:12px;margin-bottom:8px;}
+.award-title{font-family:'Bebas Neue',sans-serif;font-size:0.95rem;letter-spacing:2px;color:var(--gold);margin-bottom:8px;}
+.award-row{display:flex;align-items:center;gap:10px;}
+.award-info{flex:1;}
+.award-name{font-family:'Bebas Neue',sans-serif;font-size:0.95rem;}
+.award-val{font-size:9px;color:var(--muted);}
+.loading{text-align:center;padding:50px 20px;}
+.spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px;}
 @keyframes spin{to{transform:rotate(360deg)}}
-.loading-text{font-size:11px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;}
-.error-box{margin:16px;padding:16px;background:rgba(255,60,60,0.06);border:1px solid rgba(255,60,60,0.2);border-radius:4px;font-size:11px;color:#ff6060;line-height:1.8;}
-.footer{text-align:center;padding:16px;font-size:9px;color:#333350;letter-spacing:2px;}
+.loading-text{font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;}
+.error-box{margin:16px;padding:14px;background:rgba(255,60,60,0.06);border:1px solid rgba(255,60,60,0.2);border-radius:4px;font-size:10px;color:#ff6060;line-height:1.8;}
+.footer{text-align:center;padding:14px;font-size:8px;color:#333350;letter-spacing:2px;}
+.section{display:none;}
+.section.active{display:block;}
 </style>
 </head>
-
 <body>
 <div class="header">
-<div class="title">𝕏 TEAM LEADERBOARD</div>
-<div class="subtitle"><span class="live-dot"></span>Live Rankings · News Team</div>
+  <div class="title">𝕏 TEAM LEADERBOARD</div>
+  <div class="subtitle"><span class="live-dot"></span>Live Rankings · News Team · @safinbarzany</div>
 </div>
 <div class="stats-bar">
-<div class="stat"><div class="stat-n" id="s-members">9</div><div class="stat-l">Members</div></div>
-<div class="stat"><div class="stat-n" id="s-posts">—</div><div class="stat-l">Tot. Posts</div></div>
-<div class="stat"><div class="stat-n" id="s-followers">—</div><div class="stat-l">Followers</div></div>
-<div class="stat"><div class="stat-n" id="s-updated">—</div><div class="stat-l">Updated</div></div>
+  <div class="stat"><div class="stat-n" id="s-members">9</div><div class="stat-l">Members</div></div>
+  <div class="stat"><div class="stat-n" id="s-posts">—</div><div class="stat-l">Tot. Posts</div></div>
+  <div class="stat"><div class="stat-n" id="s-followers">—</div><div class="stat-l">Followers</div></div>
+  <div class="stat"><div class="stat-n" id="s-updated">—</div><div class="stat-l">Updated</div></div>
 </div>
 <div class="refresh-bar">
-<span class="refresh-info" id="last-updated">Loading...</span>
-<button class="refresh-btn" id="refresh-btn" onclick="fetchAll()">↻ REFRESH</button>
+  <span class="refresh-info" id="last-updated">Loading...</span>
+  <button class="refresh-btn" id="refresh-btn" onclick="fetchAll()">↻ REFRESH</button>
 </div>
-<div class="tabs">
-<button class="tab active" onclick="setSort('tweets',this)">Posts</button>
-<button class="tab" onclick="setSort('followers',this)">Followers</button>
-<button class="tab" onclick="setSort('score',this)">Score</button>
+<div class="main-tabs">
+  <button class="main-tab active" onclick="showSection('leaderboard',this)">🏆 RANKS</button>
+  <button class="main-tab" onclick="showSection('daily',this)">📅 DAILY</button>
+  <button class="main-tab" onclick="showSection('charts',this)">📊 CHARTS</button>
+  <button class="main-tab" onclick="showSection('awards',this)">🎖 AWARDS</button>
 </div>
-<div id="board" class="board">
-<div class="loading"><div class="spinner"></div><div class="loading-text">Fetching team data...</div></div>
+
+<div id="leaderboard" class="section active">
+  <div class="sort-tabs">
+    <button class="sort-tab active" onclick="setSort('tweets',this)">Posts</button>
+    <button class="sort-tab" onclick="setSort('followers',this)">Followers</button>
+    <button class="sort-tab" onclick="setSort('today',this)">Today</button>
+    <button class="sort-tab" onclick="setSort('score',this)">Score</button>
+  </div>
+  <div id="board" class="board">
+    <div class="loading"><div class="spinner"></div><div class="loading-text">Fetching team data...</div></div>
+  </div>
 </div>
-<div class="footer">Auto-refresh every 24h · News Team Leaderboard</div>
+
+<div id="daily" class="section">
+  <div id="daily-board" class="board">
+    <div class="loading"><div class="spinner"></div><div class="loading-text">Loading daily data...</div></div>
+  </div>
+</div>
+
+<div id="charts" class="section">
+  <div class="charts-section">
+    <div class="chart-box"><div class="chart-title">📊 TOTAL POSTS</div><canvas id="chart-posts"></canvas></div>
+    <div class="chart-box"><div class="chart-title">👥 FOLLOWERS</div><canvas id="chart-followers"></canvas></div>
+    <div class="chart-box"><div class="chart-title">📅 TODAY'S POSTS</div><canvas id="chart-today"></canvas></div>
+    <div class="chart-box"><div class="chart-title">⭐ SCORE RANKING</div><canvas id="chart-score"></canvas></div>
+  </div>
+</div>
+
+<div id="awards" class="section">
+  <div class="awards-section" id="awards-board">
+    <div class="loading"><div class="spinner"></div><div class="loading-text">Loading awards...</div></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-bg" onclick="closeModal(event)">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<div class="footer">Score = Posts×10 + Followers×0.1 · Auto-refresh 24h · News Team</div>
+
 <script>
-const COLORS=["#FFD700","#00C6FF","#FF6B9D","#7C3AED","#10B981","#F97316","#06B6D4","#84CC16","#F59E0B"];
+const BEARER="AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAAdBxgn7MMaUXKX1S97DlD30hUOGM%3DcRFeYqNdgDIK2y6w8BnPTbattGWxKdRoKUgAx95NxWHmMFvxY9";
 const HANDLES=["zbriefkani","haidari_ii","K992Zhraa","shang_salar","fenk24","adamrizgar","mohammed_fayeqA","ahmed_hazharr","safinbarzany"];
-let teamData=[];
-let sortKey="tweets";
+const COLORS=["#FFD700","#00C6FF","#FF6B9D","#7C3AED","#10B981","#F97316","#06B6D4","#84CC16","#F59E0B"];
+let teamData=[],prevData={},sortKey="tweets",charts={};
+
 function score(u){return(u.public_metrics?.tweet_count||0)*10+(u.public_metrics?.followers_count||0)*0.1;}
-function setSort(key,el){sortKey=key;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));if(el)el.classList.add('active');renderBoard();}
-async function fetchAll(){
-const btn=document.getElementById('refresh-btn');
-btn.disabled=true;btn.textContent='↻ LOADING...';
-document.getElementById('board').innerHTML='<div class="loading"><div class="spinner"></div><div class="loading-text">Fetching...</div></div>';
-try{
-const res=await fetch('/.netlify/functions/xapi');
-if(!res.ok)throw new Error('Server error: '+res.status);
-const data=await res.json();
-if(data.error)throw new Error(data.error);
-if(!data.data)throw new Error('No data: '+JSON.stringify(data));
-teamData=data.data.map((u,i)=>({...u,color:COLORS[HANDLES.findIndex(h=>h.toLowerCase()===u.username.toLowerCase())%COLORS.length]||COLORS[i%COLORS.length]}));
-const p=teamData.reduce((s,u)=>s+(u.public_metrics?.tweet_count||0),0);
-const f=teamData.reduce((s,u)=>s+(u.public_metrics?.followers_count||0),0);
-document.getElementById('s-posts').textContent=p.toLocaleString();
-document.getElementById('s-followers').textContent=f>=1000?(f/1000).toFixed(1)+'K':f;
-renderBoard();
-const now=new Date();
-const t=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-document.getElementById('last-updated').textContent='Updated: '+t;
-document.getElementById('s-updated').textContent=t;
-localStorage.setItem('xleader_cache',JSON.stringify({data:teamData,ts:now.toISOString()}));
-}catch(e){document.getElementById('board').innerHTML='<div class="error-box"><b>ERROR</b>'+e.message+'</div>';}
-btn.disabled=false;btn.textContent='↻ REFRESH';}
-function renderBoard(){
-if(!teamData.length)return;
-const sorted=[...teamData].sort((a,b)=>{const ma=a.public_metrics||{},mb=b.public_metrics||{};if(sortKey==='tweets')return(mb.tweet_count||0)-(ma.tweet_count||0);if(sortKey==='followers')return(mb.followers_count||0)-(ma.followers_count||0);return score(b)-score(a);});
-const topVal=sortKey==='tweets'?(sorted[0]?.public_metrics?.tweet_count||1):sortKey==='followers'?(sorted[0]?.public_metrics?.followers_count||1):score(sorted[0])||1;
-const board=document.getElementById('board');board.innerHTML='';
-sorted.forEach((u,idx)=>{
-const m=u.public_metrics||{};
-const rc=idx===0?'gold':idx===1?'silver':idx===2?'bronze':'';
-const rl=idx===0?'🥇':idx===1?'🥈':idx===2?'🥉':'#'+(idx+1);
-const rt=idx===0?'r1':idx===1?'r2':idx===2?'r3':'rn';
-const av=sortKey==='tweets'?(m.tweet_count||0):sortKey==='followers'?(m.followers_count||0):Math.round(score(u));
-const bp=Math.min(100,Math.round((av/topVal)*100));
-const fl=(m.followers_count||0)>=1000?((m.followers_count/1000).toFixed(1)+'K'):(m.followers_count||0);
-const img=u.profile_image_url?u.profile_image_url.replace('_normal','_bigger'):null;
-const card=document.createElement('div');card.className='card '+rc;
-card.innerHTML='<div class="card-row"><div class="rank '+rt+'">'+rl+'</div><div class="avatar" style="border-color:'+u.color+'55">'+(img?'<img src="'+img+'" onerror="this.style.display=\'none\'">':'')+'<span class="avatar-letter" style="'+(img?'display:none':'')+';color:'+u.color+'">'+((u.name||u.username)[0].toUpperCase())+'</span></div><div class="info"><div class="name">'+(u.name||u.username)+'</div><div class="handle">@'+u.username+'</div></div><div class="metrics"><div class="metric"><div class="metric-v '+(sortKey==='tweets'?'hi':'')+'">'+(m.tweet_count||0).toLocaleString()+'</div><div class="metric-k">posts</div></div><div class="metric"><div class="metric-v '+(sortKey==='followers'?'hi':'')+'">'+fl+'</div><div class="metric-k">follow</div></div><div class="score-tag">'+Math.round(score(u))+' PTS</div></div></div><div class="bar-track"><div class="bar-fill" style="width:'+bp+'%;background:'+u.color+'"></div></div>';
-board.appendChild(card);});
+function fmt(n){return n>=1000000?(n/1000000).toFixed(1)+'M':n>=1000?(n/1000).toFixed(1)+'K':String(n||0);}
+
+function showSection(id,el){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.main-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(el)el.classList.add('active');
+  if(id==='charts'&&teamData.length)renderCharts();
+  if(id==='awards'&&teamData.length)renderAwards();
+  if(id==='daily'&&teamData.length)renderDaily();
 }
+
+function setSort(key,el){
+  sortKey=key;
+  document.querySelectorAll('.sort-tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderBoard();
+}
+
+function loadPrev(){try{const s=localStorage.getItem('xleader_prev');if(s)prevData=JSON.parse(s);}catch(e){}}
+
+function savePrev(data){
+  try{
+    const today=new Date().toDateString();
+    const ex=JSON.parse(localStorage.getItem('xleader_prev')||'{}');
+    data.forEach(u=>{
+      if(!ex[u.username])ex[u.username]={};
+      ex[u.username][today]={tweets:u.public_metrics?.tweet_count||0,followers:u.public_metrics?.followers_count||0};
+      const keys=Object.keys(ex[u.username]);
+      if(keys.length>30)delete ex[u.username][keys[0]];
+    });
+    localStorage.setItem('xleader_prev',JSON.stringify(ex));
+    prevData=ex;
+  }catch(e){}
+}
+
+function getDiff(username,field,daysAgo=1){
+  try{
+    const uData=prevData[username];if(!uData)return null;
+    const days=Object.keys(uData).sort();if(days.length<2)return null;
+    const latest=uData[days[days.length-1]][field]||0;
+    const prev=uData[Math.max(0,days.length-1-daysAgo)];
+    return latest-(prev?.[field]||0);
+  }catch(e){return null;}
+}
+
+async function fetchAll(){
+  const btn=document.getElementById('refresh-btn');
+  btn.disabled=true;btn.textContent='↻ LOADING...';
+  document.getElementById('board').innerHTML='<div class="loading"><div class="spinner"></div><div class="loading-text">Fetching from X API...</div></div>';
+  try{
+    const res=await fetch('/.netlify/functions/xapi');
+    if(!res.ok)throw new Error('Server error: '+res.status);
+    const data=await res.json();
+    if(data.error)throw new Error(data.error);
+    if(!data.data)throw new Error('No data: '+JSON.stringify(data));
+    teamData=data.data.map((u,i)=>({...u,color:COLORS[HANDLES.findIndex(h=>h.toLowerCase()===u.username.toLowerCase())%COLORS.length]||COLORS[i%COLORS.length]}));
+    savePrev(teamData);
+    const p=teamData.reduce((s,u)=>s+(u.public_metrics?.tweet_count||0),0);
+    const f=teamData.reduce((s,u)=>s+(u.public_metrics?.followers_count||0),0);
+    document.getElementById('s-posts').textContent=fmt(p);
+    document.getElementById('s-followers').textContent=fmt(f);
+    renderBoard();
+    if(document.getElementById('charts').classList.contains('active'))renderCharts();
+    if(document.getElementById('awards').classList.contains('active'))renderAwards();
+    if(document.getElementById('daily').classList.contains('active'))renderDaily();
+    const now=new Date();
+    const t=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('last-updated').textContent='Updated: '+t;
+    document.getElementById('s-updated').textContent=t;
+    localStorage.setItem('xleader_cache',JSON.stringify({data:teamData,ts:now.toISOString()}));
+  }catch(e){
+    document.getElementById('board').innerHTML='<div class="error-box"><b>⚠ ERROR</b><br>'+e.message+'</div>';
+  }
+  btn.disabled=false;btn.textContent='↻ REFRESH';
+}
+
+function renderBoard(){
+  if(!teamData.length)return;
+  const sorted=[...teamData].sort((a,b)=>{
+    if(sortKey==='tweets')return(b.public_metrics?.tweet_count||0)-(a.public_metrics?.tweet_count||0);
+    if(sortKey==='followers')return(b.public_metrics?.followers_count||0)-(a.public_metrics?.followers_count||0);
+    if(sortKey==='today')return(getDiff(b.username,'tweets')||0)-(getDiff(a.username,'tweets')||0);
+    return score(b)-score(a);
+  });
+  const topVal=sortKey==='tweets'?(sorted[0]?.public_metrics?.tweet_count||1):sortKey==='followers'?(sorted[0]?.public_metrics?.followers_count||1):sortKey==='today'?(getDiff(sorted[0]?.username,'tweets')||1):score(sorted[0])||1;
+  const board=document.getElementById('board');board.innerHTML='';
+  sorted.forEach((u,idx)=>{
+    const m=u.public_metrics||{};
+    const rc=idx===0?'gold':idx===1?'silver':idx===2?'bronze':'';
+    const rl=idx===0?'🥇':idx===1?'🥈':idx===2?'🥉':'#'+(idx+1);
+    const rt=idx===0?'r1':idx===1?'r2':idx===2?'r3':'rn';
+    const todayP=getDiff(u.username,'tweets');
+    const todayF=getDiff(u.username,'followers');
+    const weekP=getDiff(u.username,'tweets',7);
+    const sc=Math.round(score(u));
+    const img=u.profile_image_url?u.profile_image_url.replace('_normal','_bigger'):null;
+    const av=sortKey==='tweets'?(m.tweet_count||0):sortKey==='followers'?(m.followers_count||0):sortKey==='today'?(todayP||0):sc;
+    const bp=Math.min(100,Math.round((av/topVal)*100));
+    const card=document.createElement('div');
+    card.className='card '+rc;card.style.animationDelay=idx*0.05+'s';card.onclick=()=>openProfile(u);
+    card.innerHTML=`
+      <div class="card-row">
+        <div class="rank ${rt}">${rl}</div>
+        <div class="avatar" style="border-color:${u.color}55;background:${u.color}11">
+          ${img?`<img src="${img}" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`:''}
+          <span class="avatar-letter" style="${img?'display:none':''};color:${u.color}">${(u.name||u.username)[0].toUpperCase()}</span>
+        </div>
+        <div class="info">
+          <div class="name" style="color:${u.color}">${u.name||u.username}</div>
+          <div class="handle">@${u.username}</div>
+          <a class="x-link" href="https://x.com/${u.username}" target="_blank" onclick="event.stopPropagation()">↗ X PROFILE</a>
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="metric-v ${sortKey==='tweets'?'hi':''}">${fmt(m.tweet_count||0)}</div><div class="metric-k">posts</div></div>
+          <div class="metric"><div class="metric-v ${sortKey==='followers'?'hi':''}">${fmt(m.followers_count||0)}</div><div class="metric-k">follow</div></div>
+          <div class="score-tag">${sc}PTS</div>
+        </div>
+      </div>
+      ${todayP!==null?`
+      <div class="daily-row">
+        <div class="daily-stat"><div class="daily-v ${todayP<0?'negative':''}">+${todayP}</div><div class="daily-k">today</div></div>
+        <div class="daily-stat"><div class="daily-v">+${weekP||0}</div><div class="daily-k">week</div></div>
+        <div class="daily-stat"><div class="daily-v ${(todayF||0)<0?'negative':''}">+${todayF||0}</div><div class="daily-k">new followers</div></div>
+      </div>`:''}
+      <div class="bar-track"><div class="bar-fill" style="width:${bp}%;background:${u.color}"></div></div>`;
+    board.appendChild(card);
+  });
+}
+
+function renderDaily(){
+  if(!teamData.length)return;
+  const sorted=[...teamData].sort((a,b)=>(getDiff(b.username,'tweets')||0)-(getDiff(a.username,'tweets')||0));
+  const board=document.getElementById('daily-board');
+  board.innerHTML='<div style="padding:8px 0;font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">TODAY\'S ACTIVITY</div>';
+  sorted.forEach((u,idx)=>{
+    const todayP=getDiff(u.username,'tweets')||0;
+    const weekP=getDiff(u.username,'tweets',7)||0;
+    const todayF=getDiff(u.username,'followers')||0;
+    const img=u.profile_image_url?u.profile_image_url.replace('_normal','_bigger'):null;
+    const card=document.createElement('div');
+    card.className='card';card.style.borderColor=u.color+'33';
+    card.innerHTML=`
+      <div class="card-row">
+        <div class="rank rn">#${idx+1}</div>
+        <div class="avatar" style="border-color:${u.color}55;background:${u.color}11">
+          ${img?`<img src="${img}" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`:''}
+          <span class="avatar-letter" style="${img?'display:none':''};color:${u.color}">${(u.name||u.username)[0].toUpperCase()}</span>
+        </div>
+        <div class="info"><div class="name" style="color:${u.color}">${u.name||u.username}</div><div class="handle">@${u.username}</div></div>
+        <div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:#00ff88">+${todayP}</div><div style="font-size:8px;color:var(--muted)">TODAY</div></div>
+      </div>
+      <div class="daily-row">
+        <div class="daily-stat"><div class="daily-v">+${todayP}</div><div class="daily-k">posts today</div></div>
+        <div class="daily-stat"><div class="daily-v">+${weekP}</div><div class="daily-k">this week</div></div>
+        <div class="daily-stat"><div class="daily-v">${fmt(u.public_metrics?.tweet_count||0)}</div><div class="daily-k">total</div></div>
+        <div class="daily-stat"><div class="daily-v">+${todayF}</div><div class="daily-k">new followers</div></div>
+      </div>`;
+    board.appendChild(card);
+  });
+}
+
+function renderCharts(){
+  if(!teamData.length)return;
+  Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}});charts={};
+  const sorted=[...teamData].sort((a,b)=>(b.public_metrics?.tweet_count||0)-(a.public_metrics?.tweet_count||0));
+  const names=sorted.map(u=>u.name||u.username);
+  const colors=sorted.map(u=>u.color);
+  const colorsA=sorted.map(u=>u.color+'99');
+  const mkBar=(id,labels,vals,bgs,bds)=>{
+    const ctx=document.getElementById(id);if(!ctx)return;
+    charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:bgs,borderColor:bds,borderWidth:2,borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#555570',font:{size:9}},grid:{color:'#1e1e30'}},y:{ticks:{color:'#555570',font:{size:9}},grid:{color:'#1e1e30'}}}}});
+  };
+  mkBar('chart-posts',names,sorted.map(u=>u.public_metrics?.tweet_count||0),colorsA,colors);
+  mkBar('chart-followers',names,sorted.map(u=>u.public_metrics?.followers_count||0),colorsA,colors);
+  const ts=[...teamData].sort((a,b)=>(getDiff(b.username,'tweets')||0)-(getDiff(a.username,'tweets')||0));
+  mkBar('chart-today',ts.map(u=>u.name||u.username),ts.map(u=>getDiff(u.username,'tweets')||0),ts.map(u=>u.color+'99'),ts.map(u=>u.color));
+  const ss=[...teamData].sort((a,b)=>score(b)-score(a));
+  const ctx=document.getElementById('chart-score');if(ctx){
+    charts['chart-score']=new Chart(ctx,{type:'doughnut',data:{labels:ss.map(u=>u.name||u.username),datasets:[{data:ss.map(u=>Math.round(score(u))),backgroundColor:ss.map(u=>u.color+'cc'),borderColor:ss.map(u=>u.color),borderWidth:2}]},options:{responsive:true,plugins:{legend:{display:true,position:'bottom',labels:{color:'#e8e8f0',font:{size:9},boxWidth:10}}}}});
+  }
+}
+
+function renderAwards(){
+  if(!teamData.length)return;
+  const board=document.getElementById('awards-board');board.innerHTML='';
+  const awards=[
+    {title:'🥇 MOST POSTS OVERALL',get:()=>[...teamData].sort((a,b)=>(b.public_metrics?.tweet_count||0)-(a.public_metrics?.tweet_count||0))[0],val:u=>fmt(u.public_metrics?.tweet_count||0)+' total posts'},
+    {title:'⚡ MOST ACTIVE TODAY',get:()=>[...teamData].sort((a,b)=>(getDiff(b.username,'tweets')||0)-(getDiff(a.username,'tweets')||0))[0],val:u=>'+'+(getDiff(u.username,'tweets')||0)+' posts today'},
+    {title:'🔥 MOST ACTIVE THIS WEEK',get:()=>[...teamData].sort((a,b)=>(getDiff(b.username,'tweets',7)||0)-(getDiff(a.username,'tweets',7)||0))[0],val:u=>'+'+(getDiff(u.username,'tweets',7)||0)+' posts this week'},
+    {title:'👥 MOST FOLLOWERS',get:()=>[...teamData].sort((a,b)=>(b.public_metrics?.followers_count||0)-(a.public_metrics?.followers_count||0))[0],val:u=>fmt(u.public_metrics?.followers_count||0)+' followers'},
+    {title:'📈 FASTEST GROWING TODAY',get:()=>[...teamData].sort((a,b)=>(getDiff(b.username,'followers')||0)-(getDiff(a.username,'followers')||0))[0],val:u=>'+'+(getDiff(u.username,'followers')||0)+' new followers'},
+    {title:'🏆 HIGHEST SCORE',get:()=>[...teamData].sort((a,b)=>score(b)-score(a))[0],val:u=>Math.round(score(u))+' points'},
+  ];
+  awards.forEach(a=>{
+    const u=a.get();if(!u)return;
+    const img=u.profile_image_url?u.profile_image_url.replace('_normal','_bigger'):null;
+    const card=document.createElement('div');card.className='award-card';card.style.borderColor=u.color+'44';
+    card.innerHTML=`
+      <div class="award-title">${a.title}</div>
+      <div class="award-row">
+        <div class="avatar" style="width:36px;height:36px;border-color:${u.color}55;background:${u.color}11">
+          ${img?`<img src="${img}" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`:''}
+          <span class="avatar-letter" style="${img?'display:none':''};color:${u.color};font-size:1rem">${(u.name||u.username)[0].toUpperCase()}</span>
+        </div>
+        <div class="award-info">
+          <div class="award-name" style="color:${u.color}">${u.name||u.username}</div>
+          <div class="award-val">@${u.username} · ${a.val(u)}</div>
+        </div>
+      </div>`;
+    board.appendChild(card);
+  });
+}
+
+function openProfile(u){
+  const m=u.public_metrics||{};
+  const img=u.profile_image_url?u.profile_image_url.replace('_normal','_bigger'):null;
+  const todayP=getDiff(u.username,'tweets');
+  const weekP=getDiff(u.username,'tweets',7);
+  const todayF=getDiff(u.username,'followers');
+  const weekF=getDiff(u.username,'followers',7);
+  document.getElementById('modal-content').innerHTML=`
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-header">
+      <div class="modal-avatar" style="border-color:${u.color};background:${u.color}11">
+        ${img?`<img src="${img}" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`:''}
+        <span class="modal-avatar-letter" style="${img?'display:none':''};color:${u.color}">${(u.name||u.username)[0].toUpperCase()}</span>
+      </div>
+      <div>
+        <div class="modal-name" style="color:${u.color}">${u.name||u.username}</div>
+        <div class="modal-handle">@${u.username}</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:0.9rem;color:var(--gold);margin-top:4px">${Math.round(score(u))} PTS</div>
+      </div>
+    </div>
+    ${u.description?`<div class="modal-bio">${u.description}</div>`:''}
+    <div class="modal-stats">
+      <div class="modal-stat"><div class="modal-stat-v">${fmt(m.tweet_count||0)}</div><div class="modal-stat-k">Posts</div></div>
+      <div class="modal-stat"><div class="modal-stat-v">${fmt(m.followers_count||0)}</div><div class="modal-stat-k">Followers</div></div>
+      <div class="modal-stat"><div class="modal-stat-v">${fmt(m.following_count||0)}</div><div class="modal-stat-k">Following</div></div>
+    </div>
+    ${todayP!==null?`
+    <div class="modal-daily-title">📅 ACTIVITY TRACKING</div>
+    <div class="modal-daily-grid">
+      <div class="modal-daily-item"><div class="modal-daily-item-v">+${todayP||0}</div><div class="modal-daily-item-k">Posts Today</div></div>
+      <div class="modal-daily-item"><div class="modal-daily-item-v">+${weekP||0}</div><div class="modal-daily-item-k">Posts This Week</div></div>
+      <div class="modal-daily-item"><div class="modal-daily-item-v">+${todayF||0}</div><div class="modal-daily-item-k">New Followers Today</div></div>
+      <div class="modal-daily-item"><div class="modal-daily-item-v">+${weekF||0}</div><div class="modal-daily-item-k">New Followers Week</div></div>
+    </div>`:'<div style="font-size:9px;color:var(--muted);padding:10px 0;margin-bottom:10px">Refresh again tomorrow to see daily tracking</div>'}
+    <a class="visit-btn" href="https://x.com/${u.username}" target="_blank">↗ VISIT @${u.username} ON X</a>`;
+  document.getElementById('modal-bg').classList.add('open');
+}
+
+function closeModal(e){if(!e||e.target===document.getElementById('modal-bg'))document.getElementById('modal-bg').classList.remove('open');}
+
 window.addEventListener('load',()=>{
-try{const c=localStorage.getItem('xleader_cache');if(c){const{data,ts}=JSON.parse(c);if((Date.now()-new Date(ts).getTime())/3600000<24){teamData=data;renderBoard();const t=new Date(ts).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});document.getElementById('last-updated').textContent='Cached: '+t;document.getElementById('s-updated').textContent=t;return;}}}catch(e){}
-fetchAll();});
+  loadPrev();
+  try{
+    const c=localStorage.getItem('xleader_cache');
+    if(c){
+      const{data,ts}=JSON.parse(c);
+      if((Date.now()-new Date(ts).getTime())/3600000<24){
+        teamData=data;
+        const p=teamData.reduce((s,u)=>s+(u.public_metrics?.tweet_count||0),0);
+        const f=teamData.reduce((s,u)=>s+(u.public_metrics?.followers_count||0),0);
+        document.getElementById('s-posts').textContent=fmt(p);
+        document.getElementById('s-followers').textContent=fmt(f);
+        renderBoard();
+        const t=new Date(ts).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+        document.getElementById('last-updated').textContent='Cached: '+t;
+        document.getElementById('s-updated').textContent=t;
+        return;
+      }
+    }
+  }catch(e){}
+  fetchAll();
+});
 setInterval(fetchAll,24*60*60*1000);
 </script>
 </body>
