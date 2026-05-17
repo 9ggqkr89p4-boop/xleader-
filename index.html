@@ -1,202 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X Team Leaderboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080810;--surface:#0f0f1a;--border:#1e1e30;--gold:#FFD700;--silver:#C0C0C0;--bronze:#CD7F32;--text:#e8e8f0;--muted:#555570;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;}
+.header{background:linear-gradient(180deg,#0d0d20 0%,var(--bg) 100%);border-bottom:1px solid var(--border);padding:28px 20px 20px;text-align:center;}
+.title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.2rem,9vw,3.8rem);letter-spacing:8px;color:var(--gold);}
+.subtitle{font-size:10px;color:var(--muted);letter-spacing:4px;margin-top:4px;text-transform:uppercase;}
+.live-dot{display:inline-block;width:7px;height:7px;background:#00ff88;border-radius:50%;margin-right:6px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-bottom:1px solid var(--border);}
+.stat{padding:12px 6px;text-align:center;border-right:1px solid var(--border);}
+.stat:last-child{border-right:none;}
+.stat-n{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;color:var(--gold);line-height:1;}
+.stat-l{font-size:8px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:2px;}
+.refresh-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);}
+.refresh-info{font-size:10px;color:var(--muted);}
+.refresh-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 14px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;border-radius:2px;}
+.tabs{display:flex;padding:14px 16px 0;gap:6px;overflow-x:auto;}
+.tab{padding:7px 14px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:2px;white-space:nowrap;}
+.tab.active{border-color:var(--gold);color:var(--gold);background:rgba(255,215,0,0.06);}
+.board{padding:12px 16px;display:flex;flex-direction:column;gap:8px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px;transition:all 0.25s;}
+.card.gold{border-color:rgba(255,215,0,0.45);background:linear-gradient(100deg,rgba(255,215,0,0.07) 0%,var(--surface) 60%);}
+.card.silver{border-color:rgba(192,192,192,0.35);}
+.card.bronze{border-color:rgba(205,127,50,0.35);}
+.card-row{display:flex;align-items:center;gap:10px;}
+.rank{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;min-width:40px;text-align:center;}
+.rank.r1{color:var(--gold);}
+.rank.r2{color:var(--silver);}
+.rank.r3{color:var(--bronze);}
+.rank.rn{color:#444460;}
+.avatar{width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid var(--border);background:#1a1a2e;display:flex;align-items:center;justify-content:center;}
+.avatar img{width:100%;height:100%;object-fit:cover;}
+.avatar-letter{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--gold);}
+.info{flex:1;min-width:0;}
+.name{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.handle{font-size:9px;color:var(--muted);margin-top:1px;}
+.metrics{display:flex;gap:12px;align-items:center;flex-shrink:0;}
+.metric{text-align:center;}
+.metric-v{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;line-height:1;}
+.metric-k{font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:1px;}
+.metric-v.hi{color:var(--gold);}
+.score-tag{font-family:'Bebas Neue',sans-serif;font-size:0.9rem;padding:2px 8px;border:1px solid rgba(255,215,0,0.2);color:rgba(255,215,0,0.7);border-radius:2px;}
+.bar-track{height:2px;background:#1a1a2e;border-radius:2px;margin-top:10px;}
+.bar-fill{height:2px;border-radius:2px;transition:width 0.8s ease;}
+.loading{text-align:center;padding:60px 20px;}
+.spinner{width:36px;height:36px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:11px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;}
+.error-box{margin:16px;padding:16px;background:rgba(255,60,60,0.06);border:1px solid rgba(255,60,60,0.2);border-radius:4px;font-size:11px;color:#ff6060;line-height:1.8;}
+.footer{text-align:center;padding:16px;font-size:9px;color:#333350;letter-spacing:2px;}
+</style>
+</head>
+<body>
+<div class="header">
+<div class="title">𝕏 TEAM LEADERBOARD</div>
+<div class="subtitle"><span class="live-dot"></span>Live Rankings · News Team</div>
+</div>
+<div class="stats-bar">
+<div class="stat"><div class="stat-n" id="s-members">9</div><div class="stat-l">Members</div></div>
+<div class="stat"><div class="stat-n" id="s-posts">—</div><div class="stat-l">Tot. Posts</div></div>
+<div class="stat"><div class="stat-n" id="s-followers">—</div><div class="stat-l">Followers</div></div>
+<div class="stat"><div class="stat-n" id="s-updated">—</div><div class="stat-l">Updated</div></div>
+</div>
+<div class="refresh-bar">
+<span class="refresh-info" id="last-updated">Loading...</span>
+<button class="refresh-btn" id="refresh-btn" onclick="fetchAll()">↻ REFRESH</button>
+</div>
+<div class="tabs">
+<button class="tab active" onclick="setSort('tweets',this)">Posts</button>
+<button class="tab" onclick="setSort('followers',this)">Followers</button>
+<button class="tab" onclick="setSort('score',this)">Score</button>
+</div>
+<div id="board" class="board">
+<div class="loading"><div class="spinner"></div><div class="loading-text">Fetching team data...</div></div>
+</div>
+<div class="footer">Auto-refresh every 24h · News Team Leaderboard</div>
+<body>
+<div class="header">
+<div class="title">𝕏 TEAM LEADERBOARD</div>
+<div class="subtitle"><span class="live-dot"></span>Live Rankings · News Team</div>
+</div>
+<div class="stats-bar">
+<div class="stat"><div class="stat-n" id="s-members">9</div><div class="stat-l">Members</div></div>
+<div class="stat"><div class="stat-n" id="s-posts">—</div><div class="stat-l">Tot. Posts</div></div>
+<div class="stat"><div class="stat-n" id="s-followers">—</div><div class="stat-l">Followers</div></div>
+<div class="stat"><div class="stat-n" id="s-updated">—</div><div class="stat-l">Updated</div></div>
+</div>
+<div class="refresh-bar">
+<span class="refresh-info" id="last-updated">Loading...</span>
+<button class="refresh-btn" id="refresh-btn" onclick="fetchAll()">↻ REFRESH</button>
+</div>
+<div class="tabs">
+<button class="tab active" onclick="setSort('tweets',this)">Posts</button>
+<button class="tab" onclick="setSort('followers',this)">Followers</button>
+<button class="tab" onclick="setSort('score',this)">Score</button>
+</div>
+<div id="board" class="board">
+<div class="loading"><div class="spinner"></div><div class="loading-text">Fetching team data...</div></div>
+</div>
+<div class="footer">Auto-refresh every 24h · News Team Leaderboard</div>
 <script>
-// Your exact color array and user handles
-const COLORS = ["#FFD700", "#00C6FF", "#FF6B9D", "#7C3AED", "#10B981", "#F97316", "#06B6D4", "#84CC16", "#F59E0B"];
-const HANDLES = ["zbriefkani", "haidari_ii", "K992Zhraa", "shang_salar", "fenk24", "adamrizgar", "mohammed_fayeqA", "ahmed_hazharr", "safinbarzany"];
-
-let teamData = [];
-let sortKey = "tweets"; // Default active tab is Posts
-
-// Updated dynamic score formula using only TODAY's live momentum metrics
-function calculateDailyScore(posts, likes, comments) {
-    return (posts * 10) + (likes * 2) + (comments * 5);
+const COLORS=["#FFD700","#00C6FF","#FF6B9D","#7C3AED","#10B981","#F97316","#06B6D4","#84CC16","#F59E0B"];
+const HANDLES=["zbriefkani","haidari_ii","K992Zhraa","shang_salar","fenk24","adamrizgar","mohammed_fayeqA","ahmed_hazharr","safinbarzany"];
+let teamData=[];
+let sortKey="tweets";
+function score(u){return(u.public_metrics?.tweet_count||0)*10+(u.public_metrics?.followers_count||0)*0.1;}
+function setSort(key,el){sortKey=key;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));if(el)el.classList.add('active');renderBoard();}
+async function fetchAll(){
+const btn=document.getElementById('refresh-btn');
+btn.disabled=true;btn.textContent='↻ LOADING...';
+document.getElementById('board').innerHTML='<div class="loading"><div class="spinner"></div><div class="loading-text">Fetching...</div></div>';
+try{
+const res=await fetch('/.netlify/functions/xapi');
+if(!res.ok)throw new Error('Server error: '+res.status);
+const data=await res.json();
+if(data.error)throw new Error(data.error);
+if(!data.data)throw new Error('No data: '+JSON.stringify(data));
+teamData=data.data.map((u,i)=>({...u,color:COLORS[HANDLES.findIndex(h=>h.toLowerCase()===u.username.toLowerCase())%COLORS.length]||COLORS[i%COLORS.length]}));
+const p=teamData.reduce((s,u)=>s+(u.public_metrics?.tweet_count||0),0);
+const f=teamData.reduce((s,u)=>s+(u.public_metrics?.followers_count||0),0);
+document.getElementById('s-posts').textContent=p.toLocaleString();
+document.getElementById('s-followers').textContent=f>=1000?(f/1000).toFixed(1)+'K':f;
+renderBoard();
+const now=new Date();
+const t=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+document.getElementById('last-updated').textContent='Updated: '+t;
+document.getElementById('s-updated').textContent=t;
+localStorage.setItem('xleader_cache',JSON.stringify({data:teamData,ts:now.toISOString()}));
+}catch(e){document.getElementById('board').innerHTML='<div class="error-box"><b>ERROR</b>'+e.message+'</div>';}
+btn.disabled=false;btn.textContent='↻ REFRESH';}
+function renderBoard(){
+if(!teamData.length)return;
+const sorted=[...teamData].sort((a,b)=>{const ma=a.public_metrics||{},mb=b.public_metrics||{};if(sortKey==='tweets')return(mb.tweet_count||0)-(ma.tweet_count||0);if(sortKey==='followers')return(mb.followers_count||0)-(ma.followers_count||0);return score(b)-score(a);});
+const topVal=sortKey==='tweets'?(sorted[0]?.public_metrics?.tweet_count||1):sortKey==='followers'?(sorted[0]?.public_metrics?.followers_count||1):score(sorted[0])||1;
+const board=document.getElementById('board');board.innerHTML='';
+sorted.forEach((u,idx)=>{
+const m=u.public_metrics||{};
+const rc=idx===0?'gold':idx===1?'silver':idx===2?'bronze':'';
+const rl=idx===0?'🥇':idx===1?'🥈':idx===2?'🥉':'#'+(idx+1);
+const rt=idx===0?'r1':idx===1?'r2':idx===2?'r3':'rn';
+const av=sortKey==='tweets'?(m.tweet_count||0):sortKey==='followers'?(m.followers_count||0):Math.round(score(u));
+const bp=Math.min(100,Math.round((av/topVal)*100));
+const fl=(m.followers_count||0)>=1000?((m.followers_count/1000).toFixed(1)+'K'):(m.followers_count||0);
+const img=u.profile_image_url?u.profile_image_url.replace('_normal','_bigger'):null;
+const card=document.createElement('div');card.className='card '+rc;
+card.innerHTML='<div class="card-row"><div class="rank '+rt+'">'+rl+'</div><div class="avatar" style="border-color:'+u.color+'55">'+(img?'<img src="'+img+'" onerror="this.style.display=\'none\'">':'')+'<span class="avatar-letter" style="'+(img?'display:none':'')+';color:'+u.color+'">'+((u.name||u.username)[0].toUpperCase())+'</span></div><div class="info"><div class="name">'+(u.name||u.username)+'</div><div class="handle">@'+u.username+'</div></div><div class="metrics"><div class="metric"><div class="metric-v '+(sortKey==='tweets'?'hi':'')+'">'+(m.tweet_count||0).toLocaleString()+'</div><div class="metric-k">posts</div></div><div class="metric"><div class="metric-v '+(sortKey==='followers'?'hi':'')+'">'+fl+'</div><div class="metric-k">follow</div></div><div class="score-tag">'+Math.round(score(u))+' PTS</div></div></div><div class="bar-track"><div class="bar-fill" style="width:'+bp+'%;background:'+u.color+'"></div></div>';
+board.appendChild(card);});
 }
-
-function setSort(key, el) {
-    sortKey = key;
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    if (el) el.classList.add('active');
-    renderBoard();
-}
-
-async function fetchAll() {
-    const btn = document.getElementById('refresh-btn');
-    btn.disabled = true;
-    btn.textContent = '↻ LOADING...';
-    document.getElementById('board').innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">Fetching Live Stats...</div></div>';
-    
-    try {
-        // Calculate your current local date format (YYYY-MM-DD)
-        const localDate = new Date();
-        const offset = localDate.getTimezoneOffset();
-        const localTodayStr = new Date(localDate.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
-
-        let totalTeamDailyPosts = 0;
-        let totalTeamFollowers = 0;
-        let freshTeamData = [];
-
-        // Loop over each user to aggregate their individual timeline tweets for TODAY
-        for (let i = 0; i < HANDLES.length; i++) {
-            const username = HANDLES[i];
-            
-            // Appending a timestamp bypasses Netlify edge caching for a true live refresh
-            const res = await fetch(`/.netlify/functions/xapi?username=${username}&t=${Date.now()}`, { cache: "no-store" });
-            if (!res.ok) throw new Error('Server error: ' + res.status);
-            
-            const result = await res.json();
-            if (result.error) throw new Error(result.error);
-
-            let dailyPosts = 0;
-            let dailyLikes = 0;
-            let dailyComments = 0;
-            let currentFollowers = result.user_metrics?.followers_count || 0;
-
-            // Target the public metrics payload specifically for items posted TODAY
-            if (result.tweets && result.tweets.data) {
-                result.tweets.data.forEach(tweet => {
-                    const tweetDateLocal = new Date(tweet.created_at).toLocaleDateString('en-CA'); // Outputs YYYY-MM-DD
-                    
-                    if (tweetDateLocal === localTodayStr) {
-                        dailyPosts += 1;
-                        dailyLikes += tweet.public_metrics?.like_count || 0;
-                        dailyComments += tweet.public_metrics?.reply_count || 0;
-                    }
-                });
-            }
-
-            totalTeamDailyPosts += dailyPosts;
-            totalTeamFollowers += currentFollowers;
-
-            freshTeamData.push({
-                username: username,
-                name: result.user_metrics?.name || username,
-                profile_image_url: result.user_metrics?.profile_image_url || null,
-                color: COLORS[i % COLORS.length],
-                followers: currentFollowers,
-                daily_posts: dailyPosts,
-                daily_likes: dailyLikes,
-                daily_comments: dailyComments,
-                daily_score: calculateDailyScore(dailyPosts, dailyLikes, dailyComments)
-            });
-        }
-
-        teamData = freshTeamData;
-
-        // Update the top UI global stats boxes
-        document.getElementById('s-posts').textContent = totalTeamDailyPosts.toLocaleString();
-        document.getElementById('s-followers').textContent = totalTeamFollowers >= 1000 ? (totalTeamFollowers / 1000).toFixed(1) + 'K' : totalTeamFollowers;
-        
-        renderBoard();
-
-        const now = new Date();
-        const currentTimeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('last-updated').textContent = 'Updated: ' + currentTimeString;
-        document.getElementById('s-updated').textContent = currentTimeString;
-        
-        // Update local memory cache
-        localStorage.setItem('xleader_cache', JSON.stringify({ data: teamData, ts: now.toISOString() }));
-    } catch (e) {
-        document.getElementById('board').innerHTML = '<div class="error-box"><b>ERROR: </b>' + e.message + '</div>';
-    }
-    
-    btn.disabled = false;
-    btn.textContent = '↻ REFRESH';
-}
-
-function renderBoard() {
-    if (!teamData.length) return;
-    const board = document.getElementById('board');
-    board.innerHTML = '';
-
-    // Sort users dynamically depending on which top navigation tab is clicked
-    const sorted = [...teamData].sort((a, b) => {
-        if (sortKey === 'tweets') return b.daily_posts - a.daily_posts;
-        if (sortKey === 'followers') return b.followers - a.followers;
-        return b.daily_score - a.daily_score;
-    });
-
-    // Determine the highest value on the screen to calculate the visual progress bar width correctly
-    const maxVal = sorted.length > 0 ? (
-        sortKey === 'tweets' ? (sorted[0].daily_posts || 1) : 
-        sortKey === 'followers' ? (sorted[0].followers || 1) : 
-        (sorted[0].daily_score || 1)
-    ) : 1;
-
-    sorted.forEach((u, idx) => {
-        const rc = idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : '';
-        const rl = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '#' + (idx + 1);
-        const rt = idx === 0 ? 'r1' : idx === 1 ? 'r2' : idx === 2 ? 'r3' : 'rn';
-        
-        // Define active visual value for progress line
-        const currentActiveVal = sortKey === 'tweets' ? u.daily_posts : sortKey === 'followers' ? u.followers : u.daily_score;
-        const progressPercent = Math.min(100, Math.round((currentActiveVal / maxVal) * 100));
-        
-        const followerDisplay = u.followers >= 1000 ? ((u.followers / 1000).toFixed(1) + 'K') : u.followers;
-        const img = u.profile_image_url ? u.profile_image_url.replace('_normal', '_bigger') : null;
-
-        const card = document.createElement('div');
-        card.className = 'card ' + rc;
-        card.innerHTML = `
-            <div class="card-row">
-                <div class="rank ${rt}">${rl}</div>
-                <div class="avatar" style="border-color:${u.color}55">
-                    ${img ? `<img src="${img}" onerror="this.style.display='none'">` : ''}
-                    <span class="avatar-letter" style="${img ? 'display:none' : ''}; color:${u.color}">
-                        ${u.name[0].toUpperCase()}
-                    </span>
-                </div>
-                <div class="info">
-                    <div class="name">${u.name}</div>
-                    <div class="handle">@${u.username}</div>
-                </div>
-                <div class="metrics">
-                    <div class="metric">
-                        <div class="metric-v ${sortKey === 'tweets' ? 'hi' : ''}">${u.daily_posts}</div>
-                        <div class="metric-k">posts</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-v">${u.daily_likes}</div>
-                        <div class="metric-k">likes</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-v">${u.daily_comments}</div>
-                        <div class="metric-k">comments</div>
-                    </div>
-                    <div class="score-tag">${Math.round(u.daily_score)} PTS</div>
-                </div>
-            </div>
-            <div class="bar-track">
-                <div class="bar-fill" style="width:${progressPercent}%; background:${u.color}"></div>
-            </div>
-        `;
-        board.appendChild(card);
-    });
-}
-
-// Initial App Activation
-window.addEventListener('load', () => {
-    try {
-        const cached = localStorage.getItem('xleader_cache');
-        if (cached) {
-            const { data, ts } = JSON.parse(cached);
-            // If the cache is fresh and belongs to the current day, use it. Otherwise, force update.
-            const cacheDate = new Date(ts).toLocaleDateString('en-CA');
-            const currentDate = new Date().toLocaleDateString('en-CA');
-            
-            if (cacheDate === currentDate) {
-                teamData = data;
-                renderBoard();
-                const cachedTime = new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-                document.getElementById('last-updated').textContent = 'Cached: ' + cachedTime;
-                document.getElementById('s-updated').textContent = cachedTime;
-                return;
-            }
-        }
-    } catch (e) { console.error("Cache read error:", e); }
-    fetchAll();
-});
-
-// Auto-run routine once every single hour to keep background processes warm
-setInterval(fetchAll, 60 * 60 * 1000);
+window.addEventListener('load',()=>{
+try{const c=localStorage.getItem('xleader_cache');if(c){const{data,ts}=JSON.parse(c);if((Date.now()-new Date(ts).getTime())/3600000<24){teamData=data;renderBoard();const t=new Date(ts).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});document.getElementById('last-updated').textContent='Cached: '+t;document.getElementById('s-updated').textContent=t;return;}}}catch(e){}
+fetchAll();});
+setInterval(fetchAll,24*60*60*1000);
 </script>
 </body>
 </html>
