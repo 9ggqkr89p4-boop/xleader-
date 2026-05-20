@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>𝕏 COMMAND CENTER · REAL DATA</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,500;14..32,700;14..32,800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -14,9 +13,7 @@
   --bg-card: #0f0f20;
   --border-dim: #1a1a30;
   --gold: #f5b042;
-  --gold-glow: #ffdd88;
   --accent-cyan: #2dd4bf;
-  --accent-pink: #f43f5e;
   --text-main: #ededf5;
   --text-muted: #6b6b8f;
 }
@@ -140,38 +137,12 @@ body {
 <div id="profileModal" class="modal"><div class="modal-content"><button class="close-modal" id="closeModalBtn">✕</button><div id="modalDynamic"></div></div></div>
 
 <script>
-const LAMBDA_USER = "/.netlify/functions/xapi";
-const LAMBDA_TWEETS = "/.netlify/functions/getTweets";
-let teamData = [];         // user objects from xapi
-let enrichedData = [];     // each user + dailyTweets + computed totals
+const LAMBDA_URL = "/.netlify/functions/xapi";
+let enrichedData = [];
 const memberColors = ["#FF6B9D","#00C6FF","#7C3AED","#10B981","#F97316","#06B6D4","#84CC16","#F59E0B","#EC4899"];
 
-// Helper: format numbers
 function formatNumber(n) { if(n===undefined) return '0'; return n>999999?(n/1000000).toFixed(1)+'M':n>999?(n/1000).toFixed(1)+'K':String(n); }
 
-// Fetch user info (9 members)
-async function fetchUsers() {
-  try {
-    const res = await fetch(LAMBDA_USER);
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    if(json.data && Array.isArray(json.data)) return json.data;
-    throw new Error('Invalid user data');
-  } catch(e) { console.error(e); return null; }
-}
-
-// Fetch real tweets for a single user from last 24h
-async function fetchTweetsForUser(username) {
-  try {
-    const res = await fetch(`${LAMBDA_TWEETS}?username=${username}`);
-    if(!res.ok) return [];
-    const json = await res.json();
-    if(json.data && Array.isArray(json.data)) return json.data;
-    return [];
-  } catch(e) { console.error(`Failed for ${username}`, e); return []; }
-}
-
-// Process tweets: compute totals, store posts
 function processDailyData(tweets) {
   const totals = { posts: tweets.length, likes: 0, replies: 0, retweets: 0 };
   tweets.forEach(t => {
@@ -183,25 +154,23 @@ function processDailyData(tweets) {
   return { posts: tweets, totals, score };
 }
 
-// Fetch all users and all tweets in parallel
 async function fetchAllData() {
-  const users = await fetchUsers();
-  if(!users || users.length===0) throw new Error('No users');
-  // For each user, fetch tweets
-  const userPromises = users.map(async (user, idx) => {
-    const tweets = await fetchTweetsForUser(user.username);
-    const dailyData = processDailyData(tweets);
+  const res = await fetch(LAMBDA_URL);
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  if(!json.data || !Array.isArray(json.data)) throw new Error('Invalid response');
+  const users = json.data;
+  return users.map((user, idx) => {
+    const dailyData = processDailyData(user.tweets || []);
     return {
       ...user,
       color: memberColors[idx % memberColors.length],
       daily: dailyData,
-      // For weekly/monthly we don't have real data; we'll reuse daily x 7/30 approx as placeholder
       weekly: { likes: dailyData.totals.likes*5, replies: dailyData.totals.replies*5, retweets: dailyData.totals.retweets*5, score: dailyData.score*5 },
       monthly: { likes: dailyData.totals.likes*22, replies: dailyData.totals.replies*22, retweets: dailyData.totals.retweets*22, score: dailyData.score*22 },
       alltime: { likes: (user.public_metrics?.tweet_count||0)*4.5, replies: (user.public_metrics?.tweet_count||0)*1.2, retweets: (user.public_metrics?.tweet_count||0)*0.9, score: (user.public_metrics?.tweet_count||0)*10 + (user.public_metrics?.followers_count||0)*0.5 }
     };
   });
-  return await Promise.all(userPromises);
 }
 
 async function refreshDashboard() {
@@ -217,7 +186,7 @@ async function refreshDashboard() {
     renderAwards();
   } catch(e) {
     console.error(e);
-    document.getElementById('dailyRankList').innerHTML = '<div style="padding:2rem; text-align:center;">⚠️ Failed to load real data. Check Lambda functions and bearer token.</div>';
+    document.getElementById('dailyRankList').innerHTML = '<div style="padding:2rem; text-align:center;">⚠️ Failed to load real data. Check Lambda function and bearer token.</div>';
   } finally {
     if(btn) { btn.disabled = false; btn.textContent = '🔄 REFRESH NOW'; }
   }
@@ -315,10 +284,10 @@ function openProfileModal(user, activePeriod) {
   const userColor = user.color;
   const avatarUrl = user.profile_image_url?.replace('_normal','_bigger') || '';
   let postsHtml = '';
-  if(isDaily && periodData.posts && periodData.posts.length) {
+  if(isDaily && user.tweets && user.tweets.length) {
     postsHtml = `
       <div class="daily-posts-list">
-        ${periodData.posts.map(post => `
+        ${user.tweets.map(post => `
           <div class="daily-post-card">
             <div class="post-type">📅 ${new Date(post.created_at).toLocaleString()}</div>
             ${post.media_url ? `<img class="post-img" src="${post.media_url}" alt="post image">` : ''}
@@ -335,13 +304,12 @@ function openProfileModal(user, activePeriod) {
         <span>🔁 ${periodData.totals.retweets} retweets</span>
       </div>
     `;
-  } else if(isDaily && (!periodData.posts || periodData.posts.length===0)) {
+  } else if(isDaily && (!user.tweets || user.tweets.length===0)) {
     postsHtml = `<div class="daily-posts-list"><div class="daily-post-card">No posts in the last 24 hours.</div></div>`;
   } else {
     postsHtml = `<div class="daily-posts-list"><div class="daily-post-card">Detailed posts only available in DAILY view. Switch to Daily tab.</div></div>`;
   }
-  const modalDiv = document.getElementById('modalDynamic');
-  modalDiv.innerHTML = `
+  document.getElementById('modalDynamic').innerHTML = `
     <div style="padding:1rem;">
       <div style="display:flex; gap:16px; align-items:center;">
         <div class="avatar" style="width:70px;height:70px; border-color:${userColor}">${avatarUrl ? `<img src="${avatarUrl}">` : `<div class="avatar-fallback" style="color:${userColor}">${(user.name||'U')[0]}</div>`}</div>
