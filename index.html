@@ -590,7 +590,7 @@ const HANDLES = ["zbriefkani","haidari_ii","K992Zhraa","shang_salar","fenk24","a
 let teamData = [];
 let enrichedData = [];
 
-// FIXED: Now accurately targets 'public_metrics' nested properties sent by the X v2 API payload 
+// FIXED: Comprehensive fallback map scanning snake_case, camelCase, and scraper variations for comments/replies
 function generateMockEngagement(user, seedOffset = 0) {
   const liveTweets = user.tweets || [];
   const now = new Date();
@@ -608,9 +608,24 @@ function generateMockEngagement(user, seedOffset = 0) {
     const tDate = new Date(t.created_at);
     const diff = now - tDate;
 
-    // Fixed mapping check to safely target nested X API data properties
-    const tweetLikes = t.public_metrics?.like_count ?? t.like_count ?? 0;
-    const tweetComments = t.public_metrics?.reply_count ?? t.reply_count ?? 0;
+    // Omnichannel fallback variables matching all potential names for like counts
+    const tweetLikes = t.public_metrics?.like_count ?? 
+                       t.public_metrics?.likeCount ?? 
+                       t.like_count ?? 
+                       t.likeCount ?? 
+                       t.favorite_count ?? 
+                       t.favoriteCount ?? 0;
+
+    // Bulletproof scanner catching every possible variation of reply/comment counters 
+    const tweetComments = t.public_metrics?.reply_count ?? 
+                          t.public_metrics?.replyCount ?? 
+                          t.public_metrics?.comment_count ?? 
+                          t.public_metrics?.commentCount ?? 
+                          t.reply_count ?? 
+                          t.replyCount ?? 
+                          t.comment_count ?? 
+                          t.commentCount ?? 
+                          t.comments ?? 0;
 
     alltime.posts++;
     alltime.likes += tweetLikes;
@@ -634,7 +649,7 @@ function generateMockEngagement(user, seedOffset = 0) {
   });
 
   if (alltime.posts === 0) {
-    alltime.posts = user.public_metrics?.tweet_count || 0;
+    alltime.posts = user.public_metrics?.tweet_count || user.public_metrics?.tweetCount || user.statuses_count || 0;
   }
 
   daily.score = (daily.likes * 2) + (daily.comments * 3) + (daily.posts * 5);
@@ -681,7 +696,7 @@ function renderOverallStats() {
   enrichedData.forEach(u => {
     totalLikes += u.engagement.alltime.likes;
     totalComments += u.engagement.alltime.comments;
-    totalFollowers += (u.public_metrics?.followers_count || 0);
+    totalFollowers += (u.public_metrics?.followers_count || u.public_metrics?.followersCount || 0);
   });
   const alltimeHtml = `
     <div class="stat-brick"><div class="stat-number">${formatNumber(totalFollowers)}</div><div class="stat-label">TOTAL FOLLOWERS</div></div>
@@ -765,13 +780,13 @@ function renderAwards() {
   });
   
   const mostLiked = [...enrichedData].sort((a,b) => b.engagement.alltime.likes - a.engagement.alltime.likes)[0];
-  const mostPosted = [...enrichedData].sort((a,b) => (b.public_metrics?.tweet_count || 0) - (a.public_metrics?.tweet_count || 0))[0];
+  const mostPosted = [...enrichedData].sort((a,b) => (b.public_metrics?.tweet_count || b.public_metrics?.tweetCount || 0) - (a.public_metrics?.tweet_count || a.public_metrics?.tweetCount || 0))[0];
   const mostActive = [...enrichedData].sort((a,b) => b.engagement.alltime.score - a.engagement.alltime.score)[0];
   const mostComments = [...enrichedData].sort((a,b) => b.engagement.alltime.comments - a.engagement.alltime.comments)[0];
   
   const extraAwards = [
     { icon: "🏆", title: "Most Liked (All-Time)", winner: mostLiked, value: mostLiked?.engagement.alltime.likes, suffix: "likes" },
-    { icon: "📝", title: "Most Posted (All-Time)", winner: mostPosted, value: mostPosted?.public_metrics?.tweet_count, suffix: "posts" },
+    { icon: "📝", title: "Most Posted (All-Time)", winner: mostPosted, value: (mostPosted?.public_metrics?.tweet_count || mostPosted?.public_metrics?.tweetCount), suffix: "posts" },
     { icon: "⚡", title: "Most Active (All-Time)", winner: mostActive, value: mostActive?.engagement.alltime.score, suffix: "pts" },
     { icon: "💬", title: "Most Comments (All-Time)", winner: mostComments, value: mostComments?.engagement.alltime.comments, suffix: "comments" }
   ];
@@ -843,9 +858,9 @@ async function openProfileModal(user, activePeriod) {
   
   if (tweetData && tweetData.data && tweetData.data.length) {
     for (const tweet of tweetData.data) {
-      // FIXED: Also corrected metric targeting when parsing single profile tweet logs inside the modal view
-      const tLikes = tweet.public_metrics?.like_count ?? tweet.like_count ?? 0;
-      const tComments = tweet.public_metrics?.reply_count ?? tweet.reply_count ?? 0;
+      // Modal metrics update following identical multi-key validation structure
+      const tLikes = tweet.public_metrics?.like_count ?? tweet.public_metrics?.likeCount ?? tweet.like_count ?? tweet.likeCount ?? tweet.favorite_count ?? 0;
+      const tComments = tweet.public_metrics?.reply_count ?? tweet.public_metrics?.replyCount ?? tweet.public_metrics?.comment_count ?? tweet.public_metrics?.commentCount ?? tweet.reply_count ?? tweet.replyCount ?? tweet.comment_count ?? 0;
 
       todayPostCount++;
       todayLikes += tLikes;
