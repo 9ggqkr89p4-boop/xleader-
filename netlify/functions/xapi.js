@@ -13,11 +13,13 @@ exports.handler = async function(event, context) {
   ];
 
   const range = event.queryStringParameters?.range || "daily";
-  const rangeMap = { daily: 1, weekly: 7, monthly: 30 };
+  const rangeMap = { daily: 1, weekly: 7 };
   const days = rangeMap[range] || 1;
   const startTime = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-  // Helper: fetch all pages of tweets for a user
+  // Wait helper to avoid rate limits
+  const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
   async function fetchAllTweets(userId, username) {
     let allTweets = [];
     let nextToken = null;
@@ -25,11 +27,22 @@ exports.handler = async function(event, context) {
     do {
       const paginationParam = nextToken ? `&pagination_token=${nextToken}` : "";
       const tweetsUrl = `https://api.twitter.com/2/users/${userId}/tweets?tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,preview_image_url&max_results=100&start_time=${startTime}${paginationParam}`;
-      
+
       const tweetsRes = await fetch(tweetsUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
+
+      // If rate limited, wait 15 seconds and retry once
+      if (tweetsRes.status === 429) {
+        console.warn(`Rate limited on ${username}, waiting 15s...`);
+        await wait(15000);
+        continue;
+      }
+
       const tweetsJson = await tweetsRes.json();
 
-      if (tweetsJson.errors || !tweetsJson.data) break;
+      if (tweetsJson.errors || !tweetsJson.data) {
+        console.error(`No data for ${username}:`, JSON.stringify(tweetsJson));
+        break;
+      }
 
       const mediaMap = new Map();
       if (tweetsJson.includes?.media) {
@@ -54,8 +67,10 @@ exports.handler = async function(event, context) {
       allTweets = allTweets.concat(pageTweets);
       nextToken = tweetsJson.meta?.next_token || null;
 
-      // Safety cap: max 5 pages
       if (allTweets.length >= 500) break;
+
+      // Small delay between pages
+      if (nextToken) await wait(1000);
 
     } while (nextToken);
 
@@ -72,7 +87,9 @@ exports.handler = async function(event, context) {
       userData.data.forEach(u => foundMap.set(u.username.toLowerCase(), u));
     }
 
-    const usersWithTweets = await Promise.all(REQUIRED_HANDLES.map(async (handle) => {
+    // Process users ONE BY ONE instead of all at once
+    const usersWithTweets = [];
+    for (const handle of REQUIRED_HANDLES) {
       let user = foundMap.get(handle.toLowerCase());
       let isPlaceholder = false;
 
@@ -96,8 +113,11 @@ exports.handler = async function(event, context) {
         }
       }
 
-      return { ...user, tweets, placeholder: isPlaceholder };
-    }));
+      usersWithTweets.push({ ...user, tweets, placeholder: isPlaceholder });
+
+      // 1 second delay between each user to respect rate limits
+      await wait(1000);
+    }
 
     return {
       statusCode: 200,
