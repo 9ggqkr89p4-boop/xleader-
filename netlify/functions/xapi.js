@@ -9,7 +9,8 @@ exports.handler = async function(event, context) {
     "adamrizgar",
     "Mohammed_FayeqA",
     "ahmed_hazharr",
-    "safinbarzany"
+    "safinbarzany",
+    "MEJPUK"
   ];
 
   try {
