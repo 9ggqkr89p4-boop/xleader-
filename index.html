@@ -105,6 +105,26 @@ body {
   font-weight: 500;
 }
 
+.refresh-btn {
+  margin-left: 12px;
+  background: rgba(245,176,66,0.2);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  border-radius: 40px;
+  padding: 0.2rem 1rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Inter', sans-serif;
+}
+
+.refresh-btn:hover {
+  background: var(--gold);
+  color: black;
+  box-shadow: 0 0 8px var(--gold);
+}
+
 .dot {
   width: 8px;
   height: 8px;
@@ -475,6 +495,33 @@ body {
   cursor: pointer;
   font-weight: bold;
 }
+.period-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 1rem 0;
+}
+.period-card {
+  background: #0c0c1c;
+  border-radius: 20px;
+  padding: 0.8rem;
+  border: 1px solid var(--border-dim);
+  text-align: center;
+}
+.period-title {
+  font-weight: 700;
+  font-size: 0.7rem;
+  color: var(--gold);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.period-stat-row {
+  font-size: 0.7rem;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 </style>
 </head>
 <body>
@@ -483,7 +530,9 @@ body {
 <div class="content">
   <div class="hero">
     <h1>𝕏 COMMAND CENTER</h1>
-    <div class="badge-live"><span class="dot"></span> LIVE · SYNTHETIC ENGAGEMENT (MOCK)</div>
+    <div class="badge-live"><span class="dot"></span> LIVE · SYNTHETIC ENGAGEMENT (MOCK)
+      <button id="refreshDataBtn" class="refresh-btn">⟳ REFRESH DATA</button>
+    </div>
   </div>
 
   <!-- All‑time overall stats -->
@@ -527,28 +576,39 @@ body {
 const BEARER="AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAAuX5QA3jwd0G3TyB7C5fVwkqIx24%3Dxy64eGFbzC7SzRBPApsUJUy1CXkleLPhGJXyvbp3SfsSnMeKoe";
 const HANDLES = ["zbriefkani","haidari_ii","K992Zhraa","shang_salar","fenk24","adamrizgar","mohammed_fayeqA","ahmed_hazharr","safinbarzany"];
 let teamData = []; // real user objects
-let enrichedData = []; // with mock per-period engagement
+let enrichedData = []; // with mock per-period engagement (includes posts now)
 
-// Helper: generate deterministic but proportional mock engagement
+// Helper: generate deterministic but proportional mock engagement (now with POSTS)
 function generateMockEngagement(user, seedOffset = 0) {
   const followers = user.public_metrics?.followers_count || 1000;
   const totalPosts = user.public_metrics?.tweet_count || 100;
   const baseFactor = Math.log(followers + 10) * (totalPosts / 50);
-  // daily likes, comments, reposts
+  // daily posts: between 1 and 8, based on user activity
+  const dailyPosts = Math.floor(Math.random() * 7) + 1 + (totalPosts > 200 ? 2 : 0);
   const dailyLikes = Math.floor(baseFactor * (0.3 + Math.random() * 0.5)) + 2;
   const dailyComments = Math.floor(baseFactor * 0.12) + 1;
   const dailyReposts = Math.floor(baseFactor * 0.2) + 1;
+  
+  const weeklyPosts = dailyPosts * 5 + Math.floor(Math.random() * 8);
   const weeklyLikes = dailyLikes * 5 + Math.floor(Math.random() * 30);
   const weeklyComments = dailyComments * 5 + Math.floor(Math.random() * 12);
   const weeklyReposts = dailyReposts * 5 + Math.floor(Math.random() * 15);
+  
+  const monthlyPosts = weeklyPosts * 3 + Math.floor(Math.random() * 15);
   const monthlyLikes = weeklyLikes * 3 + Math.floor(Math.random() * 60);
   const monthlyComments = weeklyComments * 3 + Math.floor(Math.random() * 30);
   const monthlyReposts = weeklyReposts * 3 + Math.floor(Math.random() * 30);
+  
+  const alltimePosts = totalPosts;
+  const alltimeLikes = Math.floor(totalPosts * 4.5 + followers * 0.2);
+  const alltimeComments = Math.floor(totalPosts * 1.2);
+  const alltimeReposts = Math.floor(totalPosts * 0.9);
+  
   return {
-    daily: { likes: dailyLikes, comments: dailyComments, reposts: dailyReposts, score: dailyLikes*2 + dailyComments*3 + dailyReposts*4 },
-    weekly: { likes: weeklyLikes, comments: weeklyComments, reposts: weeklyReposts, score: weeklyLikes*2 + weeklyComments*3 + weeklyReposts*4 },
-    monthly: { likes: monthlyLikes, comments: monthlyComments, reposts: monthlyReposts, score: monthlyLikes*2 + monthlyComments*3 + monthlyReposts*4 },
-    alltime: { likes: Math.floor(totalPosts * 4.5 + followers*0.2), comments: Math.floor(totalPosts * 1.2), reposts: Math.floor(totalPosts * 0.9), score: totalPosts*10 + followers*0.5 }
+    daily: { posts: dailyPosts, likes: dailyLikes, comments: dailyComments, reposts: dailyReposts, score: dailyLikes*2 + dailyComments*3 + dailyReposts*4 + dailyPosts*5 },
+    weekly: { posts: weeklyPosts, likes: weeklyLikes, comments: weeklyComments, reposts: weeklyReposts, score: weeklyLikes*2 + weeklyComments*3 + weeklyReposts*4 + weeklyPosts*5 },
+    monthly: { posts: monthlyPosts, likes: monthlyLikes, comments: monthlyComments, reposts: monthlyReposts, score: monthlyLikes*2 + monthlyComments*3 + monthlyReposts*4 + monthlyPosts*5 },
+    alltime: { posts: alltimePosts, likes: alltimeLikes, comments: alltimeComments, reposts: alltimeReposts, score: alltimeLikes*2 + alltimeComments*3 + alltimeReposts*4 + alltimePosts*5 }
   };
 }
 
@@ -572,6 +632,17 @@ function enrichWithMock(users) {
   });
 }
 
+function refreshAllData() {
+  if(!teamData.length) return;
+  enrichedData = enrichWithMock(teamData);
+  renderOverallStats();
+  renderRanking('daily', 'dailyRankList');
+  renderRanking('weekly', 'weeklyPanel');
+  renderRanking('monthly', 'monthlyPanel');
+  renderRanking('alltime', 'alltimePanel');
+  renderAwards();
+}
+
 function renderOverallStats() {
   let totalLikes = 0, totalComments = 0, totalReposts = 0, totalFollowers = 0;
   enrichedData.forEach(u => {
@@ -588,19 +659,20 @@ function renderOverallStats() {
   `;
   document.getElementById('alltimeStats').innerHTML = alltimeHtml;
   
-  let dailyLikesSum = 0, dailyCommentsSum = 0, dailyRepostsSum = 0;
+  let dailyLikesSum = 0, dailyCommentsSum = 0, dailyRepostsSum = 0, dailyPostsSum = 0;
   enrichedData.forEach(u => {
     dailyLikesSum += u.engagement.daily.likes;
     dailyCommentsSum += u.engagement.daily.comments;
     dailyRepostsSum += u.engagement.daily.reposts;
+    dailyPostsSum += u.engagement.daily.posts;
   });
   document.getElementById('dailyOverall').innerHTML = `
     <div class="daily-title">⚡ TEAM DAILY METRICS</div>
     <div class="daily-grid">
+      <div class="daily-metric"><div class="daily-value">+${dailyPostsSum}</div><div class="stat-label">POSTS TODAY</div></div>
       <div class="daily-metric"><div class="daily-value">+${dailyLikesSum}</div><div class="stat-label">LIKES TODAY</div></div>
       <div class="daily-metric"><div class="daily-value">+${dailyCommentsSum}</div><div class="stat-label">COMMENTS</div></div>
       <div class="daily-metric"><div class="daily-value">+${dailyRepostsSum}</div><div class="stat-label">REPOSTS</div></div>
-      <div class="daily-metric"><div class="daily-value">${enrichedData.length}</div><div class="stat-label">ACTIVE MEMBERS</div></div>
     </div>
   `;
 }
@@ -631,11 +703,12 @@ function renderRanking(periodKey, containerId) {
           ${avatarUrl ? `<img src="${avatarUrl}" onerror="this.src=''" />` : `<div class="avatar-fallback">${name[0]}</div>`}
         </div>
         <div class="user-info">
-          <div class="user-name">${name}</div>
+          <div class="user-name">${escapeHtml(name)}</div>
           <div class="user-handle">@${handle}</div>
           <a href="https://x.com/${handle}" target="_blank" style="font-size:9px; color:var(--accent-cyan); text-decoration:none;" onclick="event.stopPropagation()">↗ X profile</a>
         </div>
         <div class="engagement-stats">
+          <div class="stat-badge"><div class="number">${eng.posts}</div><div class="label">📝 Posts</div></div>
           <div class="stat-badge"><div class="number">${eng.likes}</div><div class="label">❤️ Likes</div></div>
           <div class="stat-badge"><div class="number">${eng.comments}</div><div class="label">💬 Comments</div></div>
           <div class="stat-badge"><div class="number">${eng.reposts}</div><div class="label">🔄 Reposts</div></div>
@@ -659,56 +732,84 @@ function renderAwards() {
   container.innerHTML = awardList.map(aw => `
     <div class="award-card">
       <div style="font-size:2rem;">${aw.period === 'daily' ? '🏅' : aw.period === 'weekly' ? '⚡' : aw.period === 'monthly' ? '🌟' : '👑'}</div>
-      <div><strong>${aw.winner.name || aw.winner.username}</strong><br><span style="font-size:0.7rem;">Top ${aw.period.toUpperCase()} · ${aw.score} pts</span></div>
+      <div><strong>${escapeHtml(aw.winner.name || aw.winner.username)}</strong><br><span style="font-size:0.7rem;">Top ${aw.period.toUpperCase()} · ${aw.score} pts</span></div>
     </div>
   `).join('');
 }
 
 function openProfileModal(user, activePeriod) {
-  const eng = user.engagement[activePeriod];
   const allEng = user.engagement;
-  const modalDiv = document.getElementById('modalDynamic');
   const avatarUrl = user.profile_image_url?.replace('_normal', '_bigger') || '';
-  // generate mock recent posts for that period (simulate 2-3 posts)
+  // Build period cards for daily, weekly, monthly, alltime including POSTS
+  const periods = ['daily', 'weekly', 'monthly', 'alltime'];
+  const periodCardsHtml = periods.map(p => {
+    const eng = allEng[p];
+    const periodName = p.charAt(0).toUpperCase() + p.slice(1);
+    return `
+      <div class="period-card">
+        <div class="period-title">${periodName}</div>
+        <div class="period-stat-row">
+          <span>📝 ${eng.posts}</span>
+          <span>❤️ ${eng.likes}</span>
+          <span>💬 ${eng.comments}</span>
+          <span>🔄 ${eng.reposts}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  // generate mock recent posts for visual (only a few)
   const mockPosts = [];
   const postCount = Math.min(3, Math.floor(Math.random() * 3) + 2);
   for(let i=0; i<postCount; i++) {
     mockPosts.push({
       text: `Sample update from @${user.username} about market insights #XCommunity ${i+1}`,
-      likes: Math.floor(eng.likes / (postCount+1)) + i*2,
-      comments: Math.floor(eng.comments / (postCount+1)),
-      reposts: Math.floor(eng.reposts / (postCount+1)),
+      likes: Math.floor(allEng.daily.likes / (postCount+1)) + i*2,
+      comments: Math.floor(allEng.daily.comments / (postCount+1)),
+      reposts: Math.floor(allEng.daily.reposts / (postCount+1)),
       image: null
     });
   }
+  
+  const modalDiv = document.getElementById('modalDynamic');
   modalDiv.innerHTML = `
     <div style="padding:1rem;">
-      <div style="display:flex; gap:16px; align-items:center;">
+      <div style="display:flex; gap:16px; align-items:center; margin-bottom:1rem;">
         <div class="avatar" style="width:70px;height:70px;">${avatarUrl ? `<img src="${avatarUrl}">` : `<div class="avatar-fallback">${(user.name||'U')[0]}</div>`}</div>
-        <div><h2>${user.name || user.username}</h2><div>@${user.username}</div><div class="score-pill" style="margin-top:6px;">🔥 ${eng.score} ${activePeriod.toUpperCase()} score</div></div>
+        <div><h2>${escapeHtml(user.name || user.username)}</h2><div>@${user.username}</div></div>
       </div>
+      
+      <h4 style="margin: 1rem 0 0.5rem 0;">📊 Engagement Breakdown (Posts, Likes, Comments, Reposts)</h4>
+      <div class="period-stats-grid">
+        ${periodCardsHtml}
+      </div>
+      
       <div style="margin: 1rem 0; background:#0a0a18; border-radius: 20px; padding:1rem;">
-        <h4>📊 ${activePeriod.toUpperCase()} activity</h4>
-        <div style="display:flex; gap:20px; justify-content:space-between; margin-top:8px;">
-          <div>❤️ ${eng.likes}</div><div>💬 ${eng.comments}</div><div>🔄 ${eng.reposts}</div>
+        <h4>📝 Latest posts (example)</h4>
+        <div class="post-list">
+          ${mockPosts.map(p => `
+            <div class="post-item">
+              <div class="post-text">${p.text}</div>
+              ${p.image ? `<img class="post-img" src="${p.image}" />` : ''}
+              <div class="post-engagement">❤️ ${p.likes} · 💬 ${p.comments} · 🔄 ${p.reposts}</div>
+            </div>
+          `).join('')}
         </div>
-        <hr style="margin:12px 0; border-color:#2a2a40;">
-        <div><small>📆 All-time: ❤️ ${allEng.alltime.likes} · 💬 ${allEng.alltime.comments} · 🔄 ${allEng.alltime.reposts}</small></div>
       </div>
-      <h4>📝 Latest posts (example)</h4>
-      <div class="post-list">
-        ${mockPosts.map(p => `
-          <div class="post-item">
-            <div class="post-text">${p.text}</div>
-            ${p.image ? `<img class="post-img" src="${p.image}" />` : ''}
-            <div class="post-engagement">❤️ ${p.likes} · 💬 ${p.comments} · 🔄 ${p.reposts}</div>
-          </div>
-        `).join('')}
-      </div>
-      <a href="https://x.com/${user.username}" target="_blank" style="display:block; margin:1rem; text-align:center; color:var(--gold);">🔗 Visit @${user.username} on X</a>
+      <a href="https://x.com/${user.username}" target="_blank" style="display:block; margin:1rem 0; text-align:center; color:var(--gold);">🔗 Visit @${user.username} on X</a>
     </div>
   `;
   document.getElementById('profileModal').classList.add('open');
+}
+
+function escapeHtml(str) {
+  if(!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if(m === '&') return '&amp;';
+    if(m === '<') return '&lt;';
+    if(m === '>') return '&gt;';
+    return m;
+  });
 }
 
 function formatNumber(n) { return n > 999999 ? (n/1000000).toFixed(1)+'M' : n > 999 ? (n/1000).toFixed(1)+'K' : n; }
@@ -748,9 +849,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 document.getElementById('closeModalBtn')?.addEventListener('click', () => document.getElementById('profileModal').classList.remove('open'));
 document.getElementById('profileModal')?.addEventListener('click', (e) => { if(e.target === document.getElementById('profileModal')) document.getElementById('profileModal').classList.remove('open'); });
+document.getElementById('refreshDataBtn')?.addEventListener('click', () => refreshAllData());
 
 init();
-setInterval(() => { if(enrichedData.length) { enrichedData = enrichWithMock(teamData); renderOverallStats(); renderRanking('daily','dailyRankList'); renderRanking('weekly','weeklyPanel'); renderRanking('monthly','monthlyPanel'); renderRanking('alltime','alltimePanel'); renderAwards(); } }, 3600000);
+// auto refresh every hour (optional, keeps fresh mock)
+setInterval(() => { if(enrichedData.length) refreshAllData(); }, 3600000);
 </script>
 </body>
 </html>
