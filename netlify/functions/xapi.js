@@ -1,5 +1,5 @@
 exports.handler = async function(event, context) {
-  const BEARER = "AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAAkhB06nMro1L2nc3wGjpOUWIedR8%3DOkiw4SDQ8F4j4FgyNweykdB5YEhynVgwH2F1jmrjgKQnwTwyik";
+  const BEARER = "AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAAuX5QA3jwd0G3TyB7C5fVwkqIx24%3Dxy64eGFbzC7SzRBPApsUJUy1CXkleLPhGJXyvbp3SfsSnMeKoe";
   const HANDLES = "zbriefkani,haidari_ii,K992Zhraa,shang_salar,fenk24,adamrizgar,mohammed_fayeqA,ahmed_hazharr,safinbarzany";
   try {
     const url = "https://api.twitter.com/2/users/by?usernames="+HANDLES+"&user.fields=public_metrics,profile_image_url,description,name";
