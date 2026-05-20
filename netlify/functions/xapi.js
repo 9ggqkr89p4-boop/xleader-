@@ -12,37 +12,47 @@ exports.handler = async function(event, context) {
     "safinbarzany"
   ];
 
+  // Only daily and weekly — Basic tier doesn't support 30 days
   const range = event.queryStringParameters?.range || "daily";
   const rangeMap = { daily: 1, weekly: 7 };
   const days = rangeMap[range] || 1;
   const startTime = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-  // Wait helper to avoid rate limits
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   async function fetchAllTweets(userId, username) {
     let allTweets = [];
     let nextToken = null;
+    let attempts = 0;
 
     do {
       const paginationParam = nextToken ? `&pagination_token=${nextToken}` : "";
       const tweetsUrl = `https://api.twitter.com/2/users/${userId}/tweets?tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,preview_image_url&max_results=100&start_time=${startTime}${paginationParam}`;
 
-      const tweetsRes = await fetch(tweetsUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
+      const tweetsRes = await fetch(tweetsUrl, {
+        headers: { "Authorization": `Bearer ${BEARER}` }
+      });
 
-      // If rate limited, wait 15 seconds and retry once
+      // Rate limited — wait and retry
       if (tweetsRes.status === 429) {
-        console.warn(`Rate limited on ${username}, waiting 15s...`);
+        attempts++;
+        if (attempts >= 3) {
+          console.warn(`Rate limit retries exhausted for ${username}`);
+          break;
+        }
+        console.warn(`Rate limited on ${username}, waiting 15s... (attempt ${attempts})`);
         await wait(15000);
         continue;
       }
 
       const tweetsJson = await tweetsRes.json();
 
-      if (tweetsJson.errors || !tweetsJson.data) {
-        console.error(`No data for ${username}:`, JSON.stringify(tweetsJson));
+      if (tweetsJson.errors) {
+        console.error(`API error for ${username}:`, JSON.stringify(tweetsJson.errors));
         break;
       }
+
+      if (!tweetsJson.data) break;
 
       const mediaMap = new Map();
       if (tweetsJson.includes?.media) {
@@ -67,10 +77,11 @@ exports.handler = async function(event, context) {
       allTweets = allTweets.concat(pageTweets);
       nextToken = tweetsJson.meta?.next_token || null;
 
+      // Safety cap
       if (allTweets.length >= 500) break;
 
       // Small delay between pages
-      if (nextToken) await wait(1000);
+      if (nextToken) await wait(500);
 
     } while (nextToken);
 
@@ -78,17 +89,25 @@ exports.handler = async function(event, context) {
   }
 
   try {
+    // Fetch all user profiles in one request
     const userUrl = `https://api.twitter.com/2/users/by?usernames=${REQUIRED_HANDLES.join(",")}&user.fields=public_metrics,profile_image_url,description,name`;
-    const userRes = await fetch(userUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
+    const userRes = await fetch(userUrl, {
+      headers: { "Authorization": `Bearer ${BEARER}` }
+    });
     const userData = await userRes.json();
+
+    if (userData.errors) {
+      throw new Error(`User fetch error: ${JSON.stringify(userData.errors)}`);
+    }
 
     const foundMap = new Map();
     if (userData.data) {
       userData.data.forEach(u => foundMap.set(u.username.toLowerCase(), u));
     }
 
-    // Process users ONE BY ONE instead of all at once
+    // Process users ONE BY ONE to avoid rate limits
     const usersWithTweets = [];
+
     for (const handle of REQUIRED_HANDLES) {
       let user = foundMap.get(handle.toLowerCase());
       let isPlaceholder = false;
@@ -108,6 +127,7 @@ exports.handler = async function(event, context) {
       if (!isPlaceholder) {
         try {
           tweets = await fetchAllTweets(user.id, user.username);
+          console.log(`Fetched ${tweets.length} tweets for ${handle}`);
         } catch (err) {
           console.error(`Tweet fetch failed for ${handle}:`, err.message);
         }
@@ -115,16 +135,21 @@ exports.handler = async function(event, context) {
 
       usersWithTweets.push({ ...user, tweets, placeholder: isPlaceholder });
 
-      // 1 second delay between each user to respect rate limits
+      // 1 second gap between each user
       await wait(1000);
     }
 
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      },
       body: JSON.stringify({ range, data: usersWithTweets })
     };
+
   } catch (error) {
+    console.error("Handler error:", error.message);
     return {
       statusCode: 500,
       headers: { "Access-Control-Allow-Origin": "*" },
