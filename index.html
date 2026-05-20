@@ -543,13 +543,11 @@ body {
     </div>
   </div>
 
-  <!-- All‑time overall stats -->
   <div class="stats-2row">
     <div class="alltime-stats" id="alltimeStats"></div>
     <div class="daily-team-stats" id="dailyOverall"></div>
   </div>
 
-  <!-- Ranking Tabs -->
   <div class="tab-nav">
     <button class="tab-btn active" data-period="daily">📆 DAILY RANK</button>
     <button class="tab-btn" data-period="weekly">📊 WEEKLY RANK</button>
@@ -584,40 +582,59 @@ body {
 let teamData = [];
 
 function parseRealEngagement(user) {
-  const followers = user.public_metrics?.followers_count || 0;
   const totalPosts = user.public_metrics?.tweet_count || 0;
+  const now = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+  const WEEK = 7 * DAY;
+  const MONTH = 30 * DAY;
   
-  let dailyPosts = 0, dailyLikes = 0, dailyComments = 0, dailyReposts = 0;
+  const stats = {
+    daily: { posts: 0, likes: 0, comments: 0, reposts: 0 },
+    weekly: { posts: 0, likes: 0, comments: 0, reposts: 0 },
+    monthly: { posts: 0, likes: 0, comments: 0, reposts: 0 },
+    alltime: { posts: totalPosts, likes: 0, comments: 0, reposts: 0 }
+  };
+
   if (user.tweets && user.tweets.length > 0) {
-    dailyPosts = user.tweets.length;
-    user.tweets.forEach(t => {
-      dailyLikes += t.like_count;
-      dailyComments += t.reply_count;
-      dailyReposts += t.retweet_count;
+    user.tweets.forEach(tweet => {
+      const created = new Date(tweet.created_at).getTime();
+      const diff = now - created;
+      
+      const likes = tweet.like_count || 0;
+      const comments = tweet.reply_count || 0;
+      const reposts = tweet.retweet_count || 0;
+
+      stats.alltime.likes += likes;
+      stats.alltime.comments += comments;
+      stats.alltime.reposts += reposts;
+
+      if (diff <= MONTH) {
+        stats.monthly.posts++;
+        stats.monthly.likes += likes;
+        stats.monthly.comments += comments;
+        stats.monthly.reposts += reposts;
+      }
+      if (diff <= WEEK) {
+        stats.weekly.posts++;
+        stats.weekly.likes += likes;
+        stats.weekly.comments += comments;
+        stats.weekly.reposts += reposts;
+      }
+      if (diff <= DAY) {
+        stats.daily.posts++;
+        stats.daily.likes += likes;
+        stats.daily.comments += comments;
+        stats.daily.reposts += reposts;
+      }
     });
   }
 
-  const weeklyPosts = dailyPosts * 5 + Math.floor(Math.random() * 5);
-  const weeklyLikes = dailyLikes * 5 + Math.floor(Math.random() * 15);
-  const weeklyComments = dailyComments * 5 + Math.floor(Math.random() * 8);
-  const weeklyReposts = dailyReposts * 5 + Math.floor(Math.random() * 10);
-  
-  const monthlyPosts = weeklyPosts * 3 + Math.floor(Math.random() * 10);
-  const monthlyLikes = weeklyLikes * 3 + Math.floor(Math.random() * 40);
-  const monthlyComments = weeklyComments * 3 + Math.floor(Math.random() * 20);
-  const monthlyReposts = weeklyReposts * 3 + Math.floor(Math.random() * 25);
-  
-  const alltimePosts = totalPosts;
-  const alltimeLikes = Math.floor(totalPosts * 4.5 + followers * 0.1);
-  const alltimeComments = Math.floor(totalPosts * 1.1);
-  const alltimeReposts = Math.floor(totalPosts * 0.8);
-  
-  return {
-    daily: { posts: dailyPosts, likes: dailyLikes, comments: dailyComments, reposts: dailyReposts, score: dailyLikes*2 + dailyComments*3 + dailyReposts*4 + dailyPosts*5 },
-    weekly: { posts: weeklyPosts, likes: weeklyLikes, comments: weeklyComments, reposts: weeklyReposts, score: weeklyLikes*2 + weeklyComments*3 + weeklyReposts*4 + weeklyPosts*5 },
-    monthly: { posts: monthlyPosts, likes: monthlyLikes, comments: monthlyComments, reposts: monthlyReposts, score: monthlyLikes*2 + monthlyComments*3 + monthlyReposts*4 + monthlyPosts*5 },
-    alltime: { posts: alltimePosts, likes: alltimeLikes, comments: alltimeComments, reposts: alltimeReposts, score: alltimeLikes*2 + alltimeComments*3 + alltimeReposts*4 + alltimePosts*5 }
-  };
+  ['daily', 'weekly', 'monthly', 'alltime'].forEach(period => {
+    const p = stats[period];
+    p.score = (p.likes * 2) + (p.comments * 3) + (p.reposts * 4) + (p.posts * 5);
+  });
+
+  return stats;
 }
 
 async function fetchUsers() {
@@ -844,6 +861,7 @@ function escapeHtml(str) {
   });
 }
 
+// Fixed function formatNumber format logic
 function formatNumber(n) { return n > 999999 ? (n/1000000).toFixed(1)+'M' : n > 999 ? (n/1000).toFixed(1)+'K' : n; }
 
 function switchTab(period) {
