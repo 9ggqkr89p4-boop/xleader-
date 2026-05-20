@@ -1,11 +1,10 @@
 // ======================= REAL X API DATA =======================
 const HANDLES = ["zbriefkani","haidari_ii","K992Zhraa","shang_salar","fenk24","adamrizgar","mohammed_fayeqA","ahmed_hazharr","safinbarzany"];
-const BEARER = "AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAAuX5QA3jwd0G3TyB7C5fVwkqIx24%3Dxy64eGFbzC7SzRBPApsUJUy1CXkleLPhGJXyvbp3SfsSnMeKoe"; // YOUR TOKEN (move to backend later)
+const BEARER = "AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAAuX5QA3jwd0G3TyB7C5fVwkqIx24%3Dxy64eGFbzC7SzRBPApsUJUy1CXkleLPhGJXyvbp3SfsSnMeKoe"; // YOUR TOKEN
 
-let teamData = [];        // user profile info
-let engagementCache = {}; // store real engagement per user per period
+let teamData = [];
+let engagementCache = {};
 
-// Helper: fetch user profile by username
 async function fetchUserByHandle(handle) {
   const url = `https://api.twitter.com/2/users/by/username/${handle}?user.fields=profile_image_url,public_metrics`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${BEARER}` } });
@@ -14,7 +13,6 @@ async function fetchUserByHandle(handle) {
   return json.data;
 }
 
-// Helper: fetch recent tweets for a user ID
 async function fetchTweets(userId, maxResults = 20) {
   const url = `https://api.twitter.com/2/users/${userId}/tweets?max_results=${maxResults}&tweet.fields=created_at,public_metrics`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${BEARER}` } });
@@ -23,7 +21,6 @@ async function fetchTweets(userId, maxResults = 20) {
   return json.data || [];
 }
 
-// Helper: filter tweets by time window and sum metrics
 function sumMetricsForPeriod(tweets, periodHours) {
   const now = new Date();
   const cutoff = new Date(now.getTime() - periodHours * 60 * 60 * 1000);
@@ -41,23 +38,21 @@ function sumMetricsForPeriod(tweets, periodHours) {
   return { likes, comments: replies, reposts: retweets, score };
 }
 
-// Main function: get real engagement for a user (with caching)
 async function getUserEngagement(userId, handle) {
-  const cacheKey = `${userId}_${Math.floor(Date.now() / 3600000)}`; // cache per hour
+  const cacheKey = `${userId}_${Math.floor(Date.now() / 3600000)}`;
   if (engagementCache[cacheKey]) return engagementCache[cacheKey];
-
   try {
-    const tweets = await fetchTweets(userId, 30); // fetch last 30 tweets
+    const tweets = await fetchTweets(userId, 30);
     const daily = sumMetricsForPeriod(tweets, 24);
-    const weekly = sumMetricsForPeriod(tweets, 24*7);
-    const monthly = sumMetricsForPeriod(tweets, 24*30);
-    const alltime = { // X API doesn't give all-time easily, so we approximate from profile metrics
+    const weekly = sumMetricsForPeriod(tweets, 24 * 7);
+    const monthly = sumMetricsForPeriod(tweets, 24 * 30);
+    const alltime = {
       likes: Math.floor((tweets.reduce((sum, t) => sum + (t.public_metrics?.like_count || 0), 0)) * 3),
       comments: Math.floor((tweets.reduce((sum, t) => sum + (t.public_metrics?.reply_count || 0), 0)) * 3),
       reposts: Math.floor((tweets.reduce((sum, t) => sum + (t.public_metrics?.retweet_count || 0), 0)) * 3),
       score: 0
     };
-    alltime.score = alltime.likes*2 + alltime.comments*3 + alltime.reposts*4;
+    alltime.score = alltime.likes * 2 + alltime.comments * 3 + alltime.reposts * 4;
     const result = { daily, weekly, monthly, alltime };
     engagementCache[cacheKey] = result;
     return result;
@@ -67,7 +62,6 @@ async function getUserEngagement(userId, handle) {
   }
 }
 
-// Load all users + their real engagement
 async function loadRealData() {
   const users = [];
   for (const handle of HANDLES) {
@@ -78,8 +72,12 @@ async function loadRealData() {
         if (engagement) {
           users.push({ ...profile, engagement });
         } else {
-          // fallback to zero engagement if API fails
-          const zeroEng = { daily: { likes:0,comments:0,reposts:0,score:0 }, weekly:{...}, monthly:{...}, alltime:{...} };
+          const zeroEng = {
+            daily: { likes: 0, comments: 0, reposts: 0, score: 0 },
+            weekly: { likes: 0, comments: 0, reposts: 0, score: 0 },
+            monthly: { likes: 0, comments: 0, reposts: 0, score: 0 },
+            alltime: { likes: 0, comments: 0, reposts: 0, score: 0 }
+          };
           users.push({ ...profile, engagement: zeroEng });
         }
       }
@@ -90,8 +88,9 @@ async function loadRealData() {
   return users;
 }
 
-// ---------- UI RENDERING (same as before, but using real data) ----------
-function formatNumber(n) { return n > 999999 ? (n/1000000).toFixed(1)+'M' : n > 999 ? (n/1000).toFixed(1)+'K' : n; }
+function formatNumber(n) {
+  return n > 999999 ? (n / 1000000).toFixed(1) + 'M' : n > 999 ? (n / 1000).toFixed(1) + 'K' : n;
+}
 
 function renderOverallStats(users) {
   let totalLikes = 0, totalComments = 0, totalReposts = 0, totalFollowers = 0;
@@ -125,13 +124,13 @@ function renderOverallStats(users) {
 }
 
 function getRanking(users, periodKey) {
-  return [...users].sort((a,b) => b.engagement[periodKey].score - a.engagement[periodKey].score);
+  return [...users].sort((a, b) => b.engagement[periodKey].score - a.engagement[periodKey].score);
 }
 
 function renderRanking(users, periodKey, containerId) {
   const sorted = getRanking(users, periodKey);
   const container = document.getElementById(containerId);
-  if(!container) return;
+  if (!container) return;
   container.innerHTML = '';
   sorted.forEach((user, idx) => {
     const eng = user.engagement[periodKey];
@@ -150,7 +149,7 @@ function renderRanking(users, periodKey, containerId) {
           ${avatarUrl ? `<img src="${avatarUrl}" onerror="this.src=''" />` : `<div class="avatar-fallback">${name[0]}</div>`}
         </div>
         <div class="user-info">
-          <div class="user-name">${name}</div>
+          <div class="user-name">${escapeHtml(name)}</div>
           <div class="user-handle">@${handle}</div>
           <a href="https://x.com/${handle}" target="_blank" style="font-size:9px; color:var(--accent-cyan); text-decoration:none;" onclick="event.stopPropagation()">↗ X profile</a>
         </div>
@@ -161,24 +160,24 @@ function renderRanking(users, periodKey, containerId) {
           <div class="score-pill">${eng.score} pts</div>
         </div>
       </div>
-      <div class="progress-bar"><div class="progress-fill" style="width: ${Math.min(100, (eng.score / (sorted[0].engagement[periodKey].score || 1))*100)}%"></div></div>
+      <div class="progress-bar"><div class="progress-fill" style="width: ${Math.min(100, (eng.score / (sorted[0].engagement[periodKey].score || 1)) * 100)}%"></div></div>
     `;
     container.appendChild(card);
   });
 }
 
 function renderAwards(users) {
-  const periods = ['daily','weekly','monthly','alltime'];
+  const periods = ['daily', 'weekly', 'monthly', 'alltime'];
   const awardList = [];
   periods.forEach(p => {
     const sorted = getRanking(users, p);
-    if(sorted[0]) awardList.push({ period: p, winner: sorted[0], score: sorted[0].engagement[p].score });
+    if (sorted[0]) awardList.push({ period: p, winner: sorted[0], score: sorted[0].engagement[p].score });
   });
   const container = document.getElementById('awardsContainer');
   container.innerHTML = awardList.map(aw => `
     <div class="award-card">
       <div style="font-size:2rem;">${aw.period === 'daily' ? '🏅' : aw.period === 'weekly' ? '⚡' : aw.period === 'monthly' ? '🌟' : '👑'}</div>
-      <div><strong>${aw.winner.name || aw.winner.username}</strong><br><span style="font-size:0.7rem;">Top ${aw.period.toUpperCase()} · ${aw.score} pts</span></div>
+      <div><strong>${escapeHtml(aw.winner.name || aw.winner.username)}</strong><br><span style="font-size:0.7rem;">Top ${aw.period.toUpperCase()} · ${aw.score} pts</span></div>
     </div>
   `).join('');
 }
@@ -191,8 +190,8 @@ function openProfileModal(user, activePeriod) {
   modalDiv.innerHTML = `
     <div style="padding:1rem;">
       <div style="display:flex; gap:16px; align-items:center;">
-        <div class="avatar" style="width:70px;height:70px;">${avatarUrl ? `<img src="${avatarUrl}">` : `<div class="avatar-fallback">${(user.name||'U')[0]}</div>`}</div>
-        <div><h2>${user.name || user.username}</h2><div>@${user.username}</div><div class="score-pill" style="margin-top:6px;">🔥 ${eng.score} ${activePeriod.toUpperCase()} score</div></div>
+        <div class="avatar" style="width:70px;height:70px;">${avatarUrl ? `<img src="${avatarUrl}">` : `<div class="avatar-fallback">${(user.name || 'U')[0]}</div>`}</div>
+        <div><h2>${escapeHtml(user.name || user.username)}</h2><div>@${user.username}</div><div class="score-pill" style="margin-top:6px;">🔥 ${eng.score} ${activePeriod.toUpperCase()} score</div></div>
       </div>
       <div style="margin: 1rem 0; background:#0a0a18; border-radius: 20px; padding:1rem;">
         <h4>📊 ${activePeriod.toUpperCase()} activity (REAL)</h4>
@@ -208,25 +207,33 @@ function openProfileModal(user, activePeriod) {
   document.getElementById('profileModal').classList.add('open');
 }
 
-// Switch tabs (unchanged)
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
 function switchTab(period) {
   document.querySelectorAll('.ranking-panel').forEach(p => p.classList.remove('active-panel'));
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  if(period === 'daily') document.getElementById('dailyPanel').classList.add('active-panel');
-  else if(period === 'weekly') document.getElementById('weeklyPanel').classList.add('active-panel');
-  else if(period === 'monthly') document.getElementById('monthlyPanel').classList.add('active-panel');
-  else if(period === 'alltime') document.getElementById('alltimePanel').classList.add('active-panel');
-  else if(period === 'awards') document.getElementById('awardsPanel').classList.add('active-panel');
+  if (period === 'daily') document.getElementById('dailyPanel').classList.add('active-panel');
+  else if (period === 'weekly') document.getElementById('weeklyPanel').classList.add('active-panel');
+  else if (period === 'monthly') document.getElementById('monthlyPanel').classList.add('active-panel');
+  else if (period === 'alltime') document.getElementById('alltimePanel').classList.add('active-panel');
+  else if (period === 'awards') document.getElementById('awardsPanel').classList.add('active-panel');
   const activeBtn = [...document.querySelectorAll('.tab-btn')].find(b => b.dataset.period === period);
-  if(activeBtn) activeBtn.classList.add('active');
+  if (activeBtn) activeBtn.classList.add('active');
 }
 
-// INIT: load real data and render everything
 async function init() {
   document.getElementById('dailyRankList').innerHTML = '<div style="padding:2rem;">Loading real engagement data from X API...</div>';
   const users = await loadRealData();
   if (users && users.length) {
-    window.teamUsers = users; // store globally for re-renders
+    window.teamUsers = users;
     renderOverallStats(users);
     renderRanking(users, 'daily', 'dailyRankList');
     renderRanking(users, 'weekly', 'weeklyPanel');
@@ -238,11 +245,9 @@ async function init() {
   }
 }
 
-// Attach event listeners
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     if (window.teamUsers) {
-      // re-render current tab with latest data (already up-to-date)
       const period = btn.dataset.period;
       if (period !== 'awards') {
         renderRanking(window.teamUsers, period, document.getElementById(`${period}Panel`).id);
@@ -253,13 +258,12 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     switchTab(btn.dataset.period);
   });
 });
-document.getElementById('closeModalBtn')?.addEventListener('click', () => document.getElementById('profileModal').classList.remove('open'));
-document.getElementById('profileModal')?.addEventListener('click', (e) => { if(e.target === document.getElementById('profileModal')) document.getElementById('profileModal').classList.remove('open'); });
 
-// Start
+document.getElementById('closeModalBtn')?.addEventListener('click', () => document.getElementById('profileModal').classList.remove('open'));
+document.getElementById('profileModal')?.addEventListener('click', (e) => { if (e.target === document.getElementById('profileModal')) document.getElementById('profileModal').classList.remove('open'); });
+
 init();
 
-// Optional: refresh every 6 hours (keep within rate limits)
 setInterval(async () => {
   if (window.teamUsers) {
     const freshUsers = await loadRealData();
