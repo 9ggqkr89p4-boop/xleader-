@@ -14,7 +14,6 @@ exports.handler = async function(event, context) {
   ];
 
   try {
-
     const userUrl =
       `https://api.twitter.com/2/users/by?usernames=${REQUIRED_HANDLES.join(",")}&user.fields=public_metrics,profile_image_url,description,name`;
 
@@ -25,7 +24,6 @@ exports.handler = async function(event, context) {
     });
 
     const userData = await userRes.json();
-
     console.log("USER DATA:", userData);
 
     const foundMap = new Map();
@@ -37,23 +35,17 @@ exports.handler = async function(event, context) {
     }
 
     const now = Date.now();
-
     const dailyDate = new Date(now - 24 * 60 * 60 * 1000).toISOString();
     const weeklyDate = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
     const monthlyDate = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
 
     const usersWithTweets = await Promise.all(
-
       REQUIRED_HANDLES.map(async (handle) => {
-
         let user = foundMap.get(handle.toLowerCase());
-
         let isPlaceholder = false;
 
         if (!user) {
-
           isPlaceholder = true;
-
           user = {
             username: handle,
             name: handle,
@@ -68,7 +60,6 @@ exports.handler = async function(event, context) {
         }
 
         let tweets = [];
-
         let stats = {
           daily: 0,
           weekly: 0,
@@ -76,9 +67,7 @@ exports.handler = async function(event, context) {
         };
 
         if (!isPlaceholder) {
-
           try {
-
             const tweetsUrl =
               `https://api.twitter.com/2/users/${user.id}/tweets?tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,preview_image_url&max_results=100`;
 
@@ -89,11 +78,10 @@ exports.handler = async function(event, context) {
             });
 
             const tweetsJson = await tweetsRes.json();
-
+            console.log("TWITTER RESPONSE:", tweetsJson);
             console.log(`TWEETS ${handle}:`, tweetsJson);
 
             const rawTweets = tweetsJson.data || [];
-
             const mediaMap = new Map();
 
             if (tweetsJson.includes?.media) {
@@ -106,21 +94,17 @@ exports.handler = async function(event, context) {
             }
 
             rawTweets.forEach(tweet => {
-
               const created = new Date(tweet.created_at).getTime();
 
               if (created >= new Date(dailyDate).getTime()) {
                 stats.daily++;
               }
-
               if (created >= new Date(weeklyDate).getTime()) {
                 stats.weekly++;
               }
-
               if (created >= new Date(monthlyDate).getTime()) {
                 stats.monthly++;
               }
-
             });
 
             tweets = rawTweets.map(tweet => ({
@@ -139,9 +123,7 @@ exports.handler = async function(event, context) {
             }));
 
           } catch (err) {
-
             console.error(`Tweet fetch failed for ${handle}:`, err.message);
-
           }
         }
 
@@ -151,42 +133,30 @@ exports.handler = async function(event, context) {
           stats,
           placeholder: isPlaceholder
         };
-
       })
-
     );
 
     return {
-
       statusCode: 200,
-
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "no-store"
       },
-
       body: JSON.stringify({
         data: usersWithTweets
       })
-
     };
 
   } catch (error) {
-
     return {
-
       statusCode: 500,
-
       headers: {
         "Access-Control-Allow-Origin": "*"
       },
-
       body: JSON.stringify({
         error: error.message
       })
-
     };
-
   }
 };
