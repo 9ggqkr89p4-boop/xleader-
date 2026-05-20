@@ -12,20 +12,61 @@ exports.handler = async function(event, context) {
     "safinbarzany"
   ];
 
-  // Pick range from query param, default to daily
   const range = event.queryStringParameters?.range || "daily";
   const rangeMap = { daily: 1, weekly: 7, monthly: 30 };
   const days = rangeMap[range] || 1;
   const startTime = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-  // Increase max_results for longer ranges
-  const maxResults = range === "monthly" ? 100 : range === "weekly" ? 50 : 10;
+  // Helper: fetch all pages of tweets for a user
+  async function fetchAllTweets(userId, username) {
+    let allTweets = [];
+    let nextToken = null;
+
+    do {
+      const paginationParam = nextToken ? `&pagination_token=${nextToken}` : "";
+      const tweetsUrl = `https://api.twitter.com/2/users/${userId}/tweets?tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,preview_image_url&max_results=100&start_time=${startTime}${paginationParam}`;
+      
+      const tweetsRes = await fetch(tweetsUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
+      const tweetsJson = await tweetsRes.json();
+
+      if (tweetsJson.errors || !tweetsJson.data) break;
+
+      const mediaMap = new Map();
+      if (tweetsJson.includes?.media) {
+        tweetsJson.includes.media.forEach(media => {
+          mediaMap.set(media.media_key, media.url || media.preview_image_url);
+        });
+      }
+
+      const pageTweets = tweetsJson.data.map(tweet => ({
+        id: tweet.id,
+        text: tweet.text,
+        created_at: tweet.created_at,
+        like_count: tweet.public_metrics?.like_count || 0,
+        reply_count: tweet.public_metrics?.reply_count || 0,
+        retweet_count: tweet.public_metrics?.retweet_count || 0,
+        media_url: tweet.attachments?.media_keys?.[0]
+          ? (mediaMap.get(tweet.attachments.media_keys[0]) || null)
+          : null,
+        tweet_url: `https://twitter.com/${username}/status/${tweet.id}`
+      }));
+
+      allTweets = allTweets.concat(pageTweets);
+      nextToken = tweetsJson.meta?.next_token || null;
+
+      // Safety cap: max 5 pages
+      if (allTweets.length >= 500) break;
+
+    } while (nextToken);
+
+    return allTweets;
+  }
 
   try {
     const userUrl = `https://api.twitter.com/2/users/by?usernames=${REQUIRED_HANDLES.join(",")}&user.fields=public_metrics,profile_image_url,description,name`;
     const userRes = await fetch(userUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
     const userData = await userRes.json();
-    
+
     const foundMap = new Map();
     if (userData.data) {
       userData.data.forEach(u => foundMap.set(u.username.toLowerCase(), u));
@@ -34,6 +75,7 @@ exports.handler = async function(event, context) {
     const usersWithTweets = await Promise.all(REQUIRED_HANDLES.map(async (handle) => {
       let user = foundMap.get(handle.toLowerCase());
       let isPlaceholder = false;
+
       if (!user) {
         isPlaceholder = true;
         user = {
@@ -44,37 +86,16 @@ exports.handler = async function(event, context) {
           description: null
         };
       }
-      
+
       let tweets = [];
       if (!isPlaceholder) {
         try {
-          const tweetsUrl = `https://api.twitter.com/2/users/${user.id}/tweets?tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,preview_image_url&max_results=${maxResults}&start_time=${startTime}`;
-          const tweetsRes = await fetch(tweetsUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
-          const tweetsJson = await tweetsRes.json();
-          const rawTweets = tweetsJson.data || [];
-          
-          const mediaMap = new Map();
-          if (tweetsJson.includes?.media) {
-            tweetsJson.includes.media.forEach(media => {
-              mediaMap.set(media.media_key, media.url || media.preview_image_url);
-            });
-          }
-          
-          tweets = rawTweets.map(tweet => ({
-            id: tweet.id,
-            text: tweet.text,
-            created_at: tweet.created_at,
-            like_count: tweet.public_metrics?.like_count || 0,
-            reply_count: tweet.public_metrics?.reply_count || 0,
-            retweet_count: tweet.public_metrics?.retweet_count || 0,
-            media_url: tweet.attachments?.media_keys?.[0] ? (mediaMap.get(tweet.attachments.media_keys[0]) || null) : null,
-            tweet_url: `https://twitter.com/${user.username}/status/${tweet.id}`
-          }));
+          tweets = await fetchAllTweets(user.id, user.username);
         } catch (err) {
           console.error(`Tweet fetch failed for ${handle}:`, err.message);
         }
       }
-      
+
       return { ...user, tweets, placeholder: isPlaceholder };
     }));
 
