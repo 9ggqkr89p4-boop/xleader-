@@ -1,4 +1,4 @@
-const BEARER = "AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAA8OAoaxxve1sR4wAwhvT%2FST3%2F6kE%3DLHRwaAxT88yujpEYThZqbV4G45hJQlGt6AFIyXT2OMfHfnNyTl";
+const BEARER = "AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAA0vua%2F1kBs9%2Bxwqiutoh93msJp1Y%3Dxa5KbanQRqymKCT23AgXYtZr3AQ0R9xXQQLQweEU2kSRBxDVfS";
 const HANDLES = ["zbriefkani","haidari_ii","K992Zhraa","shang_salar","fenk24","adamrizgar","mohammed_fayeqA","ahmed_hazharr","safinbarzany"];
 
 const headers = {
@@ -116,4 +116,3 @@ exports.handler = async function(event) {
     };
   }
 };
- 
