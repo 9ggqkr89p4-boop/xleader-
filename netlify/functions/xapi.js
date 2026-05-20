@@ -1,4 +1,4 @@
-const BEARER = "AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAA6GxFeBB6fs%2BbHHCNhQDqbJd1TlU%3D5MhagsUwAMa0G1tZiUbqK7ALT89w4IVj0vV9syqYAVDZlkbQX0";
+const BEARER = "AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAAmANXxOqs1oivG8ySzxnJai70mwk%3Dr1mf0BXbD4iKIYOSKfYIe7woxxRYxsFBdlCZ6IaG4tDTqulAb7";
 const HANDLES = ["zbriefkani","haidari_ii","K992Zhraa","shang_salar","fenk24","adamrizgar","mohammed_fayeqA","ahmed_hazharr","safinbarzany"];
 
 const headers = {
@@ -30,14 +30,11 @@ async function fetchTimeline(userId, startTime) {
     exclude: "retweets"
   });
   const res = await fetch(`https://api.twitter.com/2/users/${userId}/tweets?${params}`, { headers });
-
-  // Log actual error for debugging
   if (!res.ok) {
     const errText = await res.text();
     console.log(`Timeline error for ${userId}: ${res.status} - ${errText}`);
     return { data: [], error: `${res.status}: ${errText}` };
   }
-
   const json = await res.json();
   return { data: json.data || [] };
 }
@@ -57,62 +54,44 @@ function aggregate(tweets) {
 
 exports.handler = async function(event) {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: CORS, body: "" };
-
   try {
     const usersData = await fetchUsers();
     if (!usersData.data) throw new Error("No users returned: " + JSON.stringify(usersData));
     const users = usersData.data;
-
     const now = new Date();
     const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
-    const weekStart  = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
+    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const results = await Promise.allSettled(users.map(async (user) => {
       const [todayRes, weekRes] = await Promise.allSettled([
         fetchTimeline(user.id, todayStart),
         fetchTimeline(user.id, weekStart)
       ]);
-
       const todayTweets = todayRes.status === "fulfilled" ? todayRes.value.data : [];
-      const weekTweets  = weekRes.status  === "fulfilled" ? weekRes.value.data  : [];
-
+      const weekTweets = weekRes.status === "fulfilled" ? weekRes.value.data : [];
       const sortByEng = (arr) => [...arr].sort((a, b) => {
         const score = t => (t.public_metrics?.like_count||0) + (t.public_metrics?.retweet_count||0) + (t.public_metrics?.reply_count||0);
         return score(b) - score(a);
       });
-
       return {
         ...user,
-        today_tweets:  sortByEng(todayTweets),
+        today_tweets: sortByEng(todayTweets),
         today_metrics: aggregate(todayTweets),
-        week_tweets:   sortByEng(weekTweets),
-        week_metrics:  aggregate(weekTweets),
-        // Debug: expose any API errors
+        week_tweets: sortByEng(weekTweets),
+        week_metrics: aggregate(weekTweets),
         today_api_error: todayRes.status === "fulfilled" ? (todayRes.value.error || null) : todayRes.reason?.message,
-        week_api_error:  weekRes.status  === "fulfilled" ? (weekRes.value.error  || null) : weekRes.reason?.message,
+        week_api_error: weekRes.status === "fulfilled" ? (weekRes.value.error || null) : weekRes.reason?.message,
       };
     }));
-
     const enriched = results.map((r, i) =>
       r.status === "fulfilled" ? r.value : {
         ...users[i],
         today_tweets: [], today_metrics: { tweet_count:0, total_likes:0, total_retweets:0, total_replies:0, total_quotes:0 },
-        week_tweets:  [], week_metrics:  { tweet_count:0, total_likes:0, total_retweets:0, total_replies:0, total_quotes:0 },
+        week_tweets: [], week_metrics: { tweet_count:0, total_likes:0, total_retweets:0, total_replies:0, total_quotes:0 },
         error: r.reason?.message
       }
     );
-
-    return {
-      statusCode: 200,
-      headers: CORS,
-      body: JSON.stringify({ data: enriched, fetched_at: new Date().toISOString() })
-    };
-
+    return { statusCode: 200, headers: CORS, body: JSON.stringify({ data: enriched, fetched_at: new Date().toISOString() }) };
   } catch(e) {
-    return {
-      statusCode: 500,
-      headers: CORS,
-      body: JSON.stringify({ error: e.message })
-    };
+    return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: e.message }) };
   }
 };
