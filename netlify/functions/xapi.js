@@ -4,7 +4,6 @@ exports.handler = async function(event, context) {
     "zbriefkani",
     "haidari_ii",
     "K992Zhraa",
-    "mejpuk",
     "shang_salar",
     "fenk24",
     "adamrizgar",
