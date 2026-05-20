@@ -1,4 +1,4 @@
-const BEARER = "AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAA0vua%2F1kBs9%2Bxwqiutoh93msJp1Y%3Dxa5KbanQRqymKCT23AgXYtZr3AQ0R9xXQQLQweEU2kSRBxDVfS";
+const BEARER = "AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAA6GxFeBB6fs%2BbHHCNhQDqbJd1TlU%3D5MhagsUwAMa0G1tZiUbqK7ALT89w4IVj0vV9syqYAVDZlkbQX0";
 const HANDLES = ["zbriefkani","haidari_ii","K992Zhraa","shang_salar","fenk24","adamrizgar","mohammed_fayeqA","ahmed_hazharr","safinbarzany"];
 
 const headers = {
