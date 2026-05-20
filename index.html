@@ -6,6 +6,13 @@
 <title>𝕏 COMMAND CENTER · ULTRA</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,500;14..32,700;14..32,800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+    }
+  }
+</script>
 <style>
 * {
   margin: 0;
@@ -24,8 +31,6 @@
   --accent-pink: #f43f5e;
   --text-main: #ededf5;
   --text-muted: #6b6b8f;
-  --chart-gradient-start: #f5b04230;
-  --chart-gradient-end: #f5b04205;
 }
 
 body {
@@ -36,7 +41,7 @@ body {
   position: relative;
 }
 
-/* moving background */
+/* moving background + X logo animation */
 .bg-aura {
   position: fixed;
   top: 0;
@@ -63,6 +68,22 @@ body {
 @keyframes drift {
   0% { transform: translate(0, 0); }
   100% { transform: translate(50px, 50px); }
+}
+
+/* 3D X logo canvas */
+#x-logo-canvas {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 100px;
+  height: 100px;
+  z-index: 99;
+  pointer-events: none;
+  opacity: 0.6;
+  transition: opacity 0.3s;
+}
+#x-logo-canvas:hover {
+  opacity: 1;
 }
 
 .content {
@@ -264,7 +285,6 @@ body {
 
 .rank-card:hover {
   transform: translateX(8px) scale(1.01);
-  border-color: var(--gold);
   box-shadow: 0 12px 28px -8px rgba(0,0,0,0.5);
 }
 
@@ -300,7 +320,7 @@ body {
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  border: 2px solid var(--gold);
+  border: 2px solid;
   background: #1a1a2e;
   display: flex;
   align-items: center;
@@ -375,8 +395,6 @@ body {
 }
 .progress-fill {
   height: 3px;
-  background: var(--gold);
-  width: 0%;
   transition: width 0.6s ease;
 }
 
@@ -403,7 +421,7 @@ body {
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.9);
+  background: rgba(0,0,0,0.95);
   backdrop-filter: blur(12px);
   z-index: 1000;
   display: none;
@@ -431,21 +449,25 @@ body {
   to { opacity: 1; transform: scale(1); }
 }
 
-.modal-header {
-  padding: 1.2rem;
-  border-bottom: 1px solid var(--border-dim);
-}
-.post-list {
+/* daily posts inside modal */
+.daily-posts-list {
   padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
-.post-item {
+.daily-post-card {
   background: #0c0c1c;
   border-radius: 20px;
   padding: 0.8rem;
   border: 1px solid var(--border-dim);
+}
+.post-type {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.5rem;
+  color: var(--gold);
 }
 .post-text {
   font-size: 0.85rem;
@@ -455,6 +477,8 @@ body {
   max-width: 100%;
   border-radius: 16px;
   margin: 8px 0;
+  max-height: 200px;
+  object-fit: cover;
 }
 .post-engagement {
   display: flex;
@@ -462,6 +486,23 @@ body {
   font-size: 0.7rem;
   margin-top: 10px;
   color: var(--accent-cyan);
+}
+.post-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.7rem;
+  color: var(--gold);
+  text-decoration: none;
+}
+.daily-totals {
+  background: rgba(0,0,0,0.4);
+  border-radius: 20px;
+  padding: 0.8rem;
+  margin: 0 1rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .close-modal {
   position: sticky;
@@ -474,16 +515,30 @@ body {
   border-radius: 30px;
   cursor: pointer;
   font-weight: bold;
+  z-index: 10;
+}
+
+/* 3d chart container */
+.chart-3d {
+  background: var(--bg-card);
+  border-radius: 24px;
+  margin: 1rem 0;
+  padding: 0.5rem;
+  border: 1px solid var(--border-dim);
+  height: 300px;
+  position: relative;
 }
 </style>
 </head>
 <body>
 <div class="bg-aura"></div>
 <div class="bg-grid"></div>
+<canvas id="x-logo-canvas"></canvas>
+
 <div class="content">
   <div class="hero">
     <h1>𝕏 COMMAND CENTER</h1>
-    <div class="badge-live"><span class="dot"></span> LIVE · SYNTHETIC ENGAGEMENT (MOCK)</div>
+    <div class="badge-live"><span class="dot"></span> LIVE · SMART MOCK ENGAGEMENT</div>
   </div>
 
   <!-- All‑time overall stats -->
@@ -491,6 +546,16 @@ body {
     <div class="alltime-stats" id="alltimeStats"></div>
     <div class="daily-team-stats" id="dailyOverall"></div>
   </div>
+
+  <!-- Refresh button -->
+  <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+    <button id="manualRefreshBtn" style="background: var(--gold); border: none; padding: 8px 20px; border-radius: 40px; font-family: 'Space Grotesk', monospace; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+      🔄 REFRESH NOW
+    </button>
+  </div>
+
+  <!-- 3D Map Chart (engagement globe) -->
+  <div class="chart-3d" id="map3dContainer"></div>
 
   <!-- Ranking Tabs -->
   <div class="tab-nav">
@@ -512,7 +577,7 @@ body {
   </div>
 
   <div style="text-align:center; margin-top: 2rem; padding:1rem; font-size:0.7rem; color: #4a4a6a;">
-    🔮 MOCK engagement based on real follower/post counts | Click any card → full profile + post activity
+    🔮 Engagement metrics (likes/comments/reposts) are intelligently generated based on real follower & post counts.
   </div>
 </div>
 
@@ -523,234 +588,392 @@ body {
   </div>
 </div>
 
-<script>
-const BEARER="AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAAuX5QA3jwd0G3TyB7C5fVwkqIx24%3Dxy64eGFbzC7SzRBPApsUJUy1CXkleLPhGJXyvbp3SfsSnMeKoe";
-const HANDLES = ["zbriefkani","haidari_ii","K992Zhraa","shang_salar","fenk24","adamrizgar","mohammed_fayeqA","ahmed_hazharr","safinbarzany"];
-let teamData = []; // real user objects
-let enrichedData = []; // with mock per-period engagement
+<script type="module">
+  import * as THREE from 'three';
+  import { OrbitControls } from 'https://unpkg.com/three@0.128.0/examples/jsm/controls/OrbitControls.js';
 
-// Helper: generate deterministic but proportional mock engagement
-function generateMockEngagement(user, seedOffset = 0) {
-  const followers = user.public_metrics?.followers_count || 1000;
-  const totalPosts = user.public_metrics?.tweet_count || 100;
-  const baseFactor = Math.log(followers + 10) * (totalPosts / 50);
-  // daily likes, comments, reposts
-  const dailyLikes = Math.floor(baseFactor * (0.3 + Math.random() * 0.5)) + 2;
-  const dailyComments = Math.floor(baseFactor * 0.12) + 1;
-  const dailyReposts = Math.floor(baseFactor * 0.2) + 1;
-  const weeklyLikes = dailyLikes * 5 + Math.floor(Math.random() * 30);
-  const weeklyComments = dailyComments * 5 + Math.floor(Math.random() * 12);
-  const weeklyReposts = dailyReposts * 5 + Math.floor(Math.random() * 15);
-  const monthlyLikes = weeklyLikes * 3 + Math.floor(Math.random() * 60);
-  const monthlyComments = weeklyComments * 3 + Math.floor(Math.random() * 30);
-  const monthlyReposts = weeklyReposts * 3 + Math.floor(Math.random() * 30);
-  return {
-    daily: { likes: dailyLikes, comments: dailyComments, reposts: dailyReposts, score: dailyLikes*2 + dailyComments*3 + dailyReposts*4 },
-    weekly: { likes: weeklyLikes, comments: weeklyComments, reposts: weeklyReposts, score: weeklyLikes*2 + weeklyComments*3 + weeklyReposts*4 },
-    monthly: { likes: monthlyLikes, comments: monthlyComments, reposts: monthlyReposts, score: monthlyLikes*2 + monthlyComments*3 + monthlyReposts*4 },
-    alltime: { likes: Math.floor(totalPosts * 4.5 + followers*0.2), comments: Math.floor(totalPosts * 1.2), reposts: Math.floor(totalPosts * 0.9), score: totalPosts*10 + followers*0.5 }
-  };
-}
-
-async function fetchUsers() {
-  try {
-    const res = await fetch('/.netlify/functions/xapi');
-    if(!res.ok) throw new Error('API fail');
-    const json = await res.json();
-    if(json.data) return json.data;
-    throw new Error('no data');
-  } catch(e) {
-    console.warn(e);
-    return null;
+  // --- 3D X Logo Background (scroll movement) ---
+  const canvas = document.getElementById('x-logo-canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+  renderer.setSize(100, 100);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+  camera.position.set(0, 0, 3);
+  const geometry = new THREE.BoxGeometry(1.2, 1.2, 0.2);
+  const edgesGeo = new THREE.EdgesGeometry(geometry);
+  const edgesMat = new THREE.LineBasicMaterial({ color: 0xf5b042 });
+  const wireframe = new THREE.LineSegments(edgesGeo, edgesMat);
+  scene.add(wireframe);
+  const material = new THREE.MeshStandardMaterial({ color: 0xf5b042, emissive: 0x442200, transparent: true, opacity: 0.3 });
+  const cube = new THREE.Mesh(geometry, material);
+  scene.add(cube);
+  const light = new THREE.DirectionalLight(0xffffff, 1);
+  light.position.set(1, 1, 1);
+  scene.add(light);
+  const ambient = new THREE.AmbientLight(0x404040);
+  scene.add(ambient);
+  function animateLogo() {
+    requestAnimationFrame(animateLogo);
+    cube.rotation.x += 0.01;
+    cube.rotation.y += 0.015;
+    wireframe.rotation.x = cube.rotation.x;
+    wireframe.rotation.y = cube.rotation.y;
+    renderer.render(scene, camera);
   }
-}
-
-function enrichWithMock(users) {
-  return users.map((u, idx) => {
-    const mock = generateMockEngagement(u, idx);
-    return { ...u, engagement: mock };
+  animateLogo();
+  // scroll effect: move Y position
+  window.addEventListener('scroll', () => {
+    const scrollY = window.scrollY;
+    const moveY = scrollY * 0.05;
+    canvas.style.transform = `translateY(${moveY}px)`;
   });
-}
 
-function renderOverallStats() {
-  let totalLikes = 0, totalComments = 0, totalReposts = 0, totalFollowers = 0;
-  enrichedData.forEach(u => {
-    totalLikes += u.engagement.alltime.likes;
-    totalComments += u.engagement.alltime.comments;
-    totalReposts += u.engagement.alltime.reposts;
-    totalFollowers += (u.public_metrics?.followers_count || 0);
-  });
-  const alltimeHtml = `
-    <div class="stat-brick"><div class="stat-number">${formatNumber(totalFollowers)}</div><div class="stat-label">TOTAL FOLLOWERS</div></div>
-    <div class="stat-brick"><div class="stat-number">${formatNumber(totalLikes)}</div><div class="stat-label">ALL-TIME LIKES</div></div>
-    <div class="stat-brick"><div class="stat-number">${formatNumber(totalComments)}</div><div class="stat-label">ALL-TIME COMMENTS</div></div>
-    <div class="stat-brick"><div class="stat-number">${formatNumber(totalReposts)}</div><div class="stat-label">ALL-TIME REPOSTS</div></div>
-  `;
-  document.getElementById('alltimeStats').innerHTML = alltimeHtml;
-  
-  let dailyLikesSum = 0, dailyCommentsSum = 0, dailyRepostsSum = 0;
-  enrichedData.forEach(u => {
-    dailyLikesSum += u.engagement.daily.likes;
-    dailyCommentsSum += u.engagement.daily.comments;
-    dailyRepostsSum += u.engagement.daily.reposts;
-  });
-  document.getElementById('dailyOverall').innerHTML = `
-    <div class="daily-title">⚡ TEAM DAILY METRICS</div>
-    <div class="daily-grid">
-      <div class="daily-metric"><div class="daily-value">+${dailyLikesSum}</div><div class="stat-label">LIKES TODAY</div></div>
-      <div class="daily-metric"><div class="daily-value">+${dailyCommentsSum}</div><div class="stat-label">COMMENTS</div></div>
-      <div class="daily-metric"><div class="daily-value">+${dailyRepostsSum}</div><div class="stat-label">REPOSTS</div></div>
-      <div class="daily-metric"><div class="daily-value">${enrichedData.length}</div><div class="stat-label">ACTIVE MEMBERS</div></div>
-    </div>
-  `;
-}
-
-function getRanking(periodKey) {
-  return [...enrichedData].sort((a,b) => b.engagement[periodKey].score - a.engagement[periodKey].score);
-}
-
-function renderRanking(periodKey, containerId) {
-  const sorted = getRanking(periodKey);
-  const container = document.getElementById(containerId);
-  if(!container) return;
-  container.innerHTML = '';
-  sorted.forEach((user, idx) => {
-    const eng = user.engagement[periodKey];
-    const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
-    const avatarUrl = user.profile_image_url?.replace('_normal', '_bigger') || '';
-    const name = user.name || user.username;
-    const handle = user.username;
-    const card = document.createElement('div');
-    card.className = `rank-card ${rankClass}`;
-    card.style.cursor = 'pointer';
-    card.onclick = () => openProfileModal(user, periodKey);
-    card.innerHTML = `
-      <div class="card-inner">
-        <div class="rank-number">${idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`}</div>
-        <div class="avatar">
-          ${avatarUrl ? `<img src="${avatarUrl}" onerror="this.src=''" />` : `<div class="avatar-fallback">${name[0]}</div>`}
-        </div>
-        <div class="user-info">
-          <div class="user-name">${name}</div>
-          <div class="user-handle">@${handle}</div>
-          <a href="https://x.com/${handle}" target="_blank" style="font-size:9px; color:var(--accent-cyan); text-decoration:none;" onclick="event.stopPropagation()">↗ X profile</a>
-        </div>
-        <div class="engagement-stats">
-          <div class="stat-badge"><div class="number">${eng.likes}</div><div class="label">❤️ Likes</div></div>
-          <div class="stat-badge"><div class="number">${eng.comments}</div><div class="label">💬 Comments</div></div>
-          <div class="stat-badge"><div class="number">${eng.reposts}</div><div class="label">🔄 Reposts</div></div>
-          <div class="score-pill">${eng.score} pts</div>
-        </div>
-      </div>
-      <div class="progress-bar"><div class="progress-fill" style="width: ${Math.min(100, (eng.score / (sorted[0].engagement[periodKey].score || 1))*100)}%"></div></div>
-    `;
-    container.appendChild(card);
-  });
-}
-
-function renderAwards() {
-  const periods = ['daily','weekly','monthly','alltime'];
-  const awardList = [];
-  periods.forEach(p => {
-    const sorted = getRanking(p);
-    if(sorted[0]) awardList.push({ period: p, winner: sorted[0], score: sorted[0].engagement[p].score });
-  });
-  const container = document.getElementById('awardsContainer');
-  container.innerHTML = awardList.map(aw => `
-    <div class="award-card">
-      <div style="font-size:2rem;">${aw.period === 'daily' ? '🏅' : aw.period === 'weekly' ? '⚡' : aw.period === 'monthly' ? '🌟' : '👑'}</div>
-      <div><strong>${aw.winner.name || aw.winner.username}</strong><br><span style="font-size:0.7rem;">Top ${aw.period.toUpperCase()} · ${aw.score} pts</span></div>
-    </div>
-  `).join('');
-}
-
-function openProfileModal(user, activePeriod) {
-  const eng = user.engagement[activePeriod];
-  const allEng = user.engagement;
-  const modalDiv = document.getElementById('modalDynamic');
-  const avatarUrl = user.profile_image_url?.replace('_normal', '_bigger') || '';
-  // generate mock recent posts for that period (simulate 2-3 posts)
-  const mockPosts = [];
-  const postCount = Math.min(3, Math.floor(Math.random() * 3) + 2);
-  for(let i=0; i<postCount; i++) {
-    mockPosts.push({
-      text: `Sample update from @${user.username} about market insights #XCommunity ${i+1}`,
-      likes: Math.floor(eng.likes / (postCount+1)) + i*2,
-      comments: Math.floor(eng.comments / (postCount+1)),
-      reposts: Math.floor(eng.reposts / (postCount+1)),
-      image: null
+  // --- 3D Map Chart (Bar chart on a globe-like plane) ---
+  let mapScene, mapCamera, mapRenderer, mapControls;
+  function init3DMap(dataPoints) {
+    const container = document.getElementById('map3dContainer');
+    container.innerHTML = '';
+    const width = container.clientWidth;
+    const height = 300;
+    mapScene = new THREE.Scene();
+    mapCamera = new THREE.PerspectiveCamera(45, width/height, 0.1, 1000);
+    mapCamera.position.set(0, 5, 12);
+    mapRenderer = new THREE.WebGLRenderer({ alpha: true });
+    mapRenderer.setSize(width, height);
+    mapRenderer.setClearColor(0x05050f, 0);
+    container.appendChild(mapRenderer.domElement);
+    mapControls = new OrbitControls(mapCamera, mapRenderer.domElement);
+    mapControls.enableDamping = true;
+    // add a grid floor
+    const gridHelper = new THREE.GridHelper(15, 20, 0xf5b042, 0x333366);
+    gridHelper.position.y = -1.5;
+    mapScene.add(gridHelper);
+    const ambientMap = new THREE.AmbientLight(0x404060);
+    mapScene.add(ambientMap);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(2, 5, 3);
+    mapScene.add(dirLight);
+    // bars
+    const maxVal = Math.max(...dataPoints.map(d => d.value), 1);
+    dataPoints.forEach((point, idx) => {
+      const heightVal = (point.value / maxVal) * 2.5;
+      const geometry = new THREE.BoxGeometry(0.6, heightVal, 0.6);
+      const materialBar = new THREE.MeshStandardMaterial({ color: point.color, emissive: point.color, emissiveIntensity: 0.2 });
+      const bar = new THREE.Mesh(geometry, materialBar);
+      const xPos = (idx - dataPoints.length/2) * 1.2;
+      bar.position.set(xPos, -1.5 + heightVal/2, 0);
+      mapScene.add(bar);
+      // label (simple sprite not needed, just hover)
+    });
+    function animate3D() {
+      requestAnimationFrame(animate3D);
+      mapControls.update();
+      mapRenderer.render(mapScene, mapCamera);
+    }
+    animate3D();
+    window.addEventListener('resize', () => {
+      const newWidth = container.clientWidth;
+      const newHeight = 300;
+      mapCamera.aspect = newWidth/newHeight;
+      mapCamera.updateProjectionMatrix();
+      mapRenderer.setSize(newWidth, newHeight);
     });
   }
-  modalDiv.innerHTML = `
-    <div style="padding:1rem;">
-      <div style="display:flex; gap:16px; align-items:center;">
-        <div class="avatar" style="width:70px;height:70px;">${avatarUrl ? `<img src="${avatarUrl}">` : `<div class="avatar-fallback">${(user.name||'U')[0]}</div>`}</div>
-        <div><h2>${user.name || user.username}</h2><div>@${user.username}</div><div class="score-pill" style="margin-top:6px;">🔥 ${eng.score} ${activePeriod.toUpperCase()} score</div></div>
-      </div>
-      <div style="margin: 1rem 0; background:#0a0a18; border-radius: 20px; padding:1rem;">
-        <h4>📊 ${activePeriod.toUpperCase()} activity</h4>
-        <div style="display:flex; gap:20px; justify-content:space-between; margin-top:8px;">
-          <div>❤️ ${eng.likes}</div><div>💬 ${eng.comments}</div><div>🔄 ${eng.reposts}</div>
-        </div>
-        <hr style="margin:12px 0; border-color:#2a2a40;">
-        <div><small>📆 All-time: ❤️ ${allEng.alltime.likes} · 💬 ${allEng.alltime.comments} · 🔄 ${allEng.alltime.reposts}</small></div>
-      </div>
-      <h4>📝 Latest posts (example)</h4>
-      <div class="post-list">
-        ${mockPosts.map(p => `
-          <div class="post-item">
-            <div class="post-text">${p.text}</div>
-            ${p.image ? `<img class="post-img" src="${p.image}" />` : ''}
-            <div class="post-engagement">❤️ ${p.likes} · 💬 ${p.comments} · 🔄 ${p.reposts}</div>
-          </div>
-        `).join('')}
-      </div>
-      <a href="https://x.com/${user.username}" target="_blank" style="display:block; margin:1rem; text-align:center; color:var(--gold);">🔗 Visit @${user.username} on X</a>
-    </div>
-  `;
-  document.getElementById('profileModal').classList.add('open');
-}
+  window.init3DMap = init3DMap;
+</script>
 
-function formatNumber(n) { return n > 999999 ? (n/1000000).toFixed(1)+'M' : n > 999 ? (n/1000).toFixed(1)+'K' : n; }
+<script>
+  // === YOUR LAMBDA ENDPOINT ===
+  const LAMBDA_URL = "/.netlify/functions/xapi";
+  let teamData = [];
+  let enrichedData = [];
+  const memberColors = [
+    "#FF6B9D", "#00C6FF", "#7C3AED", "#10B981", "#F97316", 
+    "#06B6D4", "#84CC16", "#F59E0B", "#EC4899"
+  ];
 
-function switchTab(period) {
-  document.querySelectorAll('.ranking-panel').forEach(p => p.classList.remove('active-panel'));
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  if(period === 'daily') document.getElementById('dailyPanel').classList.add('active-panel');
-  else if(period === 'weekly') document.getElementById('weeklyPanel').classList.add('active-panel');
-  else if(period === 'monthly') document.getElementById('monthlyPanel').classList.add('active-panel');
-  else if(period === 'alltime') document.getElementById('alltimePanel').classList.add('active-panel');
-  else if(period === 'awards') document.getElementById('awardsPanel').classList.add('active-panel');
-  const activeBtn = [...document.querySelectorAll('.tab-btn')].find(b => b.dataset.period === period);
-  if(activeBtn) activeBtn.classList.add('active');
-}
-
-async function init() {
-  const users = await fetchUsers();
-  if(users && users.length) {
-    teamData = users;
-    enrichedData = enrichWithMock(teamData);
-    renderOverallStats();
-    renderRanking('daily', 'dailyRankList');
-    renderRanking('weekly', 'weeklyPanel');
-    renderRanking('monthly', 'monthlyPanel');
-    renderRanking('alltime', 'alltimePanel');
-    renderAwards();
-  } else {
-    document.getElementById('dailyRankList').innerHTML = '<div style="padding:2rem;">Failed to fetch users. Check Lambda.</div>';
+  // Generate proportional mock engagement + daily posts with images/text/links
+  function generateMockEngagement(user, idx) {
+    const followers = user.public_metrics?.followers_count || 1000;
+    const totalPosts = user.public_metrics?.tweet_count || 100;
+    const base = Math.log(followers + 10) * (totalPosts / 50);
+    const dailyLikes = Math.floor(base * (0.3 + Math.random() * 0.5)) + 2;
+    const dailyComments = Math.floor(base * 0.12) + 1;
+    const dailyReposts = Math.floor(base * 0.2) + 1;
+    const weeklyLikes = dailyLikes * 5 + Math.floor(Math.random() * 30);
+    const weeklyComments = dailyComments * 5 + Math.floor(Math.random() * 12);
+    const weeklyReposts = dailyReposts * 5 + Math.floor(Math.random() * 15);
+    const monthlyLikes = weeklyLikes * 3 + Math.floor(Math.random() * 60);
+    const monthlyComments = weeklyComments * 3 + Math.floor(Math.random() * 30);
+    const monthlyReposts = weeklyReposts * 3 + Math.floor(Math.random() * 30);
+    
+    // Daily posts (mock) with text, image placeholder, direct link
+    const dailyPosts = [];
+    const numPosts = Math.floor(Math.random() * 3) + 1; // 1-3 posts today
+    for(let i=0; i<numPosts; i++) {
+      dailyPosts.push({
+        type: Math.random() > 0.7 ? "retweet" : "original",
+        text: `Just posted an update about the latest trends in crypto and AI. ${user.username} says: The future is bright! 🔥 #XCommunity`,
+        image: i % 2 === 0 ? "https://picsum.photos/200/150?random=" + Date.now() + i : null,
+        likes: Math.floor(dailyLikes / numPosts) + i * 3,
+        comments: Math.floor(dailyComments / numPosts),
+        reposts: Math.floor(dailyReposts / numPosts),
+        postUrl: `https://x.com/${user.username}/status/${Date.now() + i}`
+      });
+    }
+    const dailyTotals = {
+      posts: numPosts,
+      likes: dailyPosts.reduce((a,b) => a + b.likes, 0),
+      comments: dailyPosts.reduce((a,b) => a + b.comments, 0),
+      reposts: dailyPosts.reduce((a,b) => a + b.reposts, 0)
+    };
+    return {
+      color: memberColors[idx % memberColors.length],
+      daily: { likes: dailyLikes, comments: dailyComments, reposts: dailyReposts, score: dailyLikes*2 + dailyComments*3 + dailyReposts*4, posts: dailyPosts, totals: dailyTotals },
+      weekly: { likes: weeklyLikes, comments: weeklyComments, reposts: weeklyReposts, score: weeklyLikes*2 + weeklyComments*3 + weeklyReposts*4 },
+      monthly: { likes: monthlyLikes, comments: monthlyComments, reposts: monthlyReposts, score: monthlyLikes*2 + monthlyComments*3 + monthlyReposts*4 },
+      alltime: { likes: Math.floor(totalPosts * 4.5 + followers*0.2), comments: Math.floor(totalPosts * 1.2), reposts: Math.floor(totalPosts * 0.9), score: totalPosts*10 + followers*0.5 }
+    };
   }
-}
 
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    switchTab(btn.dataset.period);
+  async function fetchUsers() {
+    try {
+      const res = await fetch(LAMBDA_URL);
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if(json.data && Array.isArray(json.data)) return json.data;
+      throw new Error('Invalid API response');
+    } catch(e) {
+      console.error(e);
+      return null;
+    }
+  }
+
+  function enrichWithMock(users) {
+    return users.map((u, idx) => ({ ...u, engagement: generateMockEngagement(u, idx) }));
+  }
+
+  function formatNumber(n) { 
+    if(n === undefined) return '0';
+    return n > 999999 ? (n/1000000).toFixed(1)+'M' : n > 999 ? (n/1000).toFixed(1)+'K' : String(n);
+  }
+
+  function renderOverallStats() {
+    let totalLikes = 0, totalComments = 0, totalReposts = 0, totalFollowers = 0;
+    enrichedData.forEach(u => {
+      totalLikes += u.engagement.alltime.likes;
+      totalComments += u.engagement.alltime.comments;
+      totalReposts += u.engagement.alltime.reposts;
+      totalFollowers += (u.public_metrics?.followers_count || 0);
+    });
+    document.getElementById('alltimeStats').innerHTML = `
+      <div class="stat-brick"><div class="stat-number">${formatNumber(totalFollowers)}</div><div class="stat-label">TOTAL FOLLOWERS</div></div>
+      <div class="stat-brick"><div class="stat-number">${formatNumber(totalLikes)}</div><div class="stat-label">ALL-TIME LIKES</div></div>
+      <div class="stat-brick"><div class="stat-number">${formatNumber(totalComments)}</div><div class="stat-label">ALL-TIME COMMENTS</div></div>
+      <div class="stat-brick"><div class="stat-number">${formatNumber(totalReposts)}</div><div class="stat-label">ALL-TIME REPOSTS</div></div>
+    `;
+    let dailyLikesSum = 0, dailyCommentsSum = 0, dailyRepostsSum = 0;
+    enrichedData.forEach(u => {
+      dailyLikesSum += u.engagement.daily.likes;
+      dailyCommentsSum += u.engagement.daily.comments;
+      dailyRepostsSum += u.engagement.daily.reposts;
+    });
+    document.getElementById('dailyOverall').innerHTML = `
+      <div class="daily-title">⚡ TEAM DAILY METRICS</div>
+      <div class="daily-grid">
+        <div class="daily-metric"><div class="daily-value">+${dailyLikesSum}</div><div class="stat-label">LIKES TODAY</div></div>
+        <div class="daily-metric"><div class="daily-value">+${dailyCommentsSum}</div><div class="stat-label">COMMENTS</div></div>
+        <div class="daily-metric"><div class="daily-value">+${dailyRepostsSum}</div><div class="stat-label">REPOSTS</div></div>
+        <div class="daily-metric"><div class="daily-value">${enrichedData.length}</div><div class="stat-label">ACTIVE MEMBERS</div></div>
+      </div>
+    `;
+  }
+
+  function getRanking(periodKey) {
+    return [...enrichedData].sort((a,b) => b.engagement[periodKey].score - a.engagement[periodKey].score);
+  }
+
+  function renderRanking(periodKey, containerId) {
+    const sorted = getRanking(periodKey);
+    const container = document.getElementById(containerId);
+    if(!container) return;
+    container.innerHTML = '';
+    sorted.forEach((user, idx) => {
+      const eng = user.engagement[periodKey];
+      const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+      const avatarUrl = user.profile_image_url?.replace('_normal', '_bigger') || '';
+      const name = user.name || user.username;
+      const handle = user.username;
+      const userColor = user.engagement.color;
+      const card = document.createElement('div');
+      card.className = `rank-card ${rankClass}`;
+      card.style.cursor = 'pointer';
+      card.onclick = () => openProfileModal(user, periodKey);
+      card.innerHTML = `
+        <div class="card-inner">
+          <div class="rank-number">${idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`}</div>
+          <div class="avatar" style="border-color:${userColor}">
+            ${avatarUrl ? `<img src="${avatarUrl}" onerror="this.src=''">` : `<div class="avatar-fallback" style="color:${userColor}">${name[0]}</div>`}
+          </div>
+          <div class="user-info">
+            <div class="user-name" style="color:${userColor}">${escapeHtml(name)}</div>
+            <div class="user-handle">@${handle}</div>
+            <a href="https://x.com/${handle}" target="_blank" style="font-size:9px; color:var(--accent-cyan); text-decoration:none;" onclick="event.stopPropagation()">↗ X profile</a>
+          </div>
+          <div class="engagement-stats">
+            <div class="stat-badge"><div class="number">${eng.likes}</div><div class="label">❤️ Likes</div></div>
+            <div class="stat-badge"><div class="number">${eng.comments}</div><div class="label">💬 Comments</div></div>
+            <div class="stat-badge"><div class="number">${eng.reposts}</div><div class="label">🔄 Reposts</div></div>
+            <div class="score-pill">${eng.score} pts</div>
+          </div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width: ${Math.min(100, (eng.score / (sorted[0].engagement[periodKey].score || 1))*100)}%; background:${userColor}"></div></div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  function renderAwards() {
+    const periods = ['daily','weekly','monthly','alltime'];
+    const awardList = [];
+    periods.forEach(p => {
+      const sorted = getRanking(p);
+      if(sorted[0]) awardList.push({ period: p, winner: sorted[0], score: sorted[0].engagement[p].score });
+    });
+    const container = document.getElementById('awardsContainer');
+    container.innerHTML = awardList.map(aw => `
+      <div class="award-card" style="border-left: 4px solid ${aw.winner.engagement.color}">
+        <div style="font-size:2rem;">${aw.period === 'daily' ? '🏅' : aw.period === 'weekly' ? '⚡' : aw.period === 'monthly' ? '🌟' : '👑'}</div>
+        <div><strong style="color:${aw.winner.engagement.color}">${escapeHtml(aw.winner.name || aw.winner.username)}</strong><br><span style="font-size:0.7rem;">Top ${aw.period.toUpperCase()} · ${aw.score} pts</span></div>
+      </div>
+    `).join('');
+  }
+
+  function openProfileModal(user, activePeriod) {
+    const eng = user.engagement[activePeriod];
+    const allEng = user.engagement;
+    const avatarUrl = user.profile_image_url?.replace('_normal', '_bigger') || '';
+    const userColor = user.engagement.color;
+    let dailyHtml = '';
+    if(activePeriod === 'daily' && eng.posts) {
+      dailyHtml = `
+        <div class="daily-posts-list">
+          ${eng.posts.map(post => `
+            <div class="daily-post-card">
+              <div class="post-type">${post.type === 'retweet' ? '🔁 RETWEET' : '📝 ORIGINAL POST'}</div>
+              ${post.image ? `<img class="post-img" src="${post.image}" alt="post image">` : ''}
+              <div class="post-text">${escapeHtml(post.text)}</div>
+              <div class="post-engagement">❤️ ${post.likes} · 💬 ${post.comments} · 🔁 ${post.reposts}</div>
+              <a class="post-link" href="${post.postUrl}" target="_blank" onclick="event.stopPropagation()">🔗 View on X →</a>
+            </div>
+          `).join('')}
+        </div>
+        <div class="daily-totals">
+          <span>📝 ${eng.totals.posts} posts</span>
+          <span>❤️ ${eng.totals.likes} likes</span>
+          <span>💬 ${eng.totals.comments} comments</span>
+          <span>🔁 ${eng.totals.reposts} reposts</span>
+        </div>
+      `;
+    } else {
+      dailyHtml = `<div class="daily-posts-list"><div class="daily-post-card">Detailed posts only available in DAILY view. Switch to Daily tab for per-post breakdown.</div></div>`;
+    }
+    const modalDiv = document.getElementById('modalDynamic');
+    modalDiv.innerHTML = `
+      <div style="padding:1rem;">
+        <div style="display:flex; gap:16px; align-items:center;">
+          <div class="avatar" style="width:70px;height:70px; border-color:${userColor}">${avatarUrl ? `<img src="${avatarUrl}">` : `<div class="avatar-fallback" style="color:${userColor}">${(user.name||'U')[0]}</div>`}</div>
+          <div><h2 style="color:${userColor}">${escapeHtml(user.name || user.username)}</h2><div>@${user.username}</div><div class="score-pill" style="margin-top:6px;">🔥 ${eng.score} ${activePeriod.toUpperCase()} score</div></div>
+        </div>
+        <div style="margin: 1rem 0; background:#0a0a18; border-radius: 20px; padding:1rem;">
+          <h4>📊 ${activePeriod.toUpperCase()} activity</h4>
+          <div style="display:flex; gap:20px; justify-content:space-between; margin-top:8px;">
+            <div>❤️ ${eng.likes}</div><div>💬 ${eng.comments}</div><div>🔄 ${eng.reposts}</div>
+          </div>
+          <hr style="margin:12px 0; border-color:#2a2a40;">
+          <div><small>📆 All-time: ❤️ ${allEng.alltime.likes} · 💬 ${allEng.alltime.comments} · 🔄 ${allEng.alltime.reposts}</small></div>
+        </div>
+        <h4>📝 Daily posts (for ${activePeriod} period)</h4>
+        ${dailyHtml}
+        <a href="https://x.com/${user.username}" target="_blank" style="display:block; margin:1rem; text-align:center; color:var(--gold);">🔗 Visit @${user.username} on X</a>
+      </div>
+    `;
+    document.getElementById('profileModal').classList.add('open');
+  }
+
+  function escapeHtml(str) {
+    if(!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+      if(m === '&') return '&amp;';
+      if(m === '<') return '&lt;';
+      if(m === '>') return '&gt;';
+      return m;
+    });
+  }
+
+  function switchTab(period) {
+    document.querySelectorAll('.ranking-panel').forEach(p => p.classList.remove('active-panel'));
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    if(period === 'daily') document.getElementById('dailyPanel').classList.add('active-panel');
+    else if(period === 'weekly') document.getElementById('weeklyPanel').classList.add('active-panel');
+    else if(period === 'monthly') document.getElementById('monthlyPanel').classList.add('active-panel');
+    else if(period === 'alltime') document.getElementById('alltimePanel').classList.add('active-panel');
+    else if(period === 'awards') document.getElementById('awardsPanel').classList.add('active-panel');
+    const activeBtn = [...document.querySelectorAll('.tab-btn')].find(b => b.dataset.period === period);
+    if(activeBtn) activeBtn.classList.add('active');
+  }
+
+  async function fetchAndRefresh() {
+    const btn = document.getElementById('manualRefreshBtn');
+    btn.textContent = '⟳ SYNCING...';
+    btn.disabled = true;
+    const users = await fetchUsers();
+    if(users && users.length) {
+      teamData = users;
+      enrichedData = enrichWithMock(teamData);
+      renderOverallStats();
+      renderRanking('daily', 'dailyRankList');
+      renderRanking('weekly', 'weeklyPanel');
+      renderRanking('monthly', 'monthlyPanel');
+      renderRanking('alltime', 'alltimePanel');
+      renderAwards();
+      // update 3D map with daily scores
+      const dailyScores = enrichedData.map(u => ({ value: u.engagement.daily.score, color: u.engagement.color }));
+      if(window.init3DMap) window.init3DMap(dailyScores);
+    } else {
+      alert('Failed to refresh. Check Lambda.');
+    }
+    btn.textContent = '🔄 REFRESH NOW';
+    btn.disabled = false;
+  }
+
+  async function init() {
+    const users = await fetchUsers();
+    if(users && users.length) {
+      teamData = users;
+      enrichedData = enrichWithMock(teamData);
+      renderOverallStats();
+      renderRanking('daily', 'dailyRankList');
+      renderRanking('weekly', 'weeklyPanel');
+      renderRanking('monthly', 'monthlyPanel');
+      renderRanking('alltime', 'alltimePanel');
+      renderAwards();
+      const dailyScores = enrichedData.map(u => ({ value: u.engagement.daily.score, color: u.engagement.color }));
+      if(window.init3DMap) window.init3DMap(dailyScores);
+    } else {
+      document.getElementById('dailyRankList').innerHTML = '<div style="padding:2rem; text-align:center;">⚠️ Could not load data. Check your Netlify function and bearer token.</div>';
+    }
+  }
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.period));
   });
-});
-document.getElementById('closeModalBtn')?.addEventListener('click', () => document.getElementById('profileModal').classList.remove('open'));
-document.getElementById('profileModal')?.addEventListener('click', (e) => { if(e.target === document.getElementById('profileModal')) document.getElementById('profileModal').classList.remove('open'); });
+  document.getElementById('closeModalBtn')?.addEventListener('click', () => document.getElementById('profileModal').classList.remove('open'));
+  document.getElementById('profileModal')?.addEventListener('click', (e) => { if(e.target === document.getElementById('profileModal')) document.getElementById('profileModal').classList.remove('open'); });
+  document.getElementById('manualRefreshBtn')?.addEventListener('click', fetchAndRefresh);
 
-init();
-setInterval(() => { if(enrichedData.length) { enrichedData = enrichWithMock(teamData); renderOverallStats(); renderRanking('daily','dailyRankList'); renderRanking('weekly','weeklyPanel'); renderRanking('monthly','monthlyPanel'); renderRanking('alltime','alltimePanel'); renderAwards(); } }, 3600000);
+  init();
+  setInterval(() => { if(teamData.length) { enrichedData = enrichWithMock(teamData); renderOverallStats(); renderRanking('daily','dailyRankList'); renderRanking('weekly','weeklyPanel'); renderRanking('monthly','monthlyPanel'); renderRanking('alltime','alltimePanel'); renderAwards(); } }, 1800000);
 </script>
 </body>
 </html>
