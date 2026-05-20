@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>𝕏 COMMAND CENTER · ULTRA</title>
+<title>𝕏 COMMAND CENTER · REAL DATA</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,500;14..32,700;14..32,800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -538,7 +538,7 @@ body {
 <div class="content">
   <div class="hero">
     <h1>𝕏 COMMAND CENTER</h1>
-    <div class="badge-live"><span class="dot"></span> LIVE · SYNTHETIC ENGAGEMENT (MOCK)
+    <div class="badge-live"><span class="dot"></span> LIVE · REAL X DATA (PREMIUM)
       <button id="refreshDataBtn" class="refresh-btn">⟳ REFRESH DATA</button>
     </div>
   </div>
@@ -569,7 +569,7 @@ body {
   </div>
 
   <div style="text-align:center; margin-top: 2rem; padding:1rem; font-size:0.7rem; color: #4a4a6a;">
-    🔮 MOCK engagement based on real follower/post counts | Click any card → full profile + post activity
+    🔮 Real engagement from X API | Click any card → full profile + post activity
   </div>
 </div>
 
@@ -586,69 +586,91 @@ const HANDLES = ["zbriefkani","haidari_ii","K992Zhraa","shang_salar","fenk24","a
 let teamData = [];
 let enrichedData = [];
 
-function generateMockEngagement(user, seedOffset = 0) {
-  const followers = user.public_metrics?.followers_count || 1000;
-  const totalPosts = user.public_metrics?.tweet_count || 100;
-  const baseFactor = Math.log(followers + 10) * (totalPosts / 50);
-  const dailyPosts = Math.floor(Math.random() * 7) + 1 + (totalPosts > 200 ? 2 : 0);
-  const dailyLikes = Math.floor(baseFactor * (0.3 + Math.random() * 0.5)) + 2;
-  const dailyComments = Math.floor(baseFactor * 0.12) + 1;
-  const dailyReposts = Math.floor(baseFactor * 0.2) + 1;
-  
-  const weeklyPosts = dailyPosts * 5 + Math.floor(Math.random() * 8);
-  const weeklyLikes = dailyLikes * 5 + Math.floor(Math.random() * 30);
-  const weeklyComments = dailyComments * 5 + Math.floor(Math.random() * 12);
-  const weeklyReposts = dailyReposts * 5 + Math.floor(Math.random() * 15);
-  
-  const monthlyPosts = weeklyPosts * 3 + Math.floor(Math.random() * 15);
-  const monthlyLikes = weeklyLikes * 3 + Math.floor(Math.random() * 60);
-  const monthlyComments = weeklyComments * 3 + Math.floor(Math.random() * 30);
-  const monthlyReposts = weeklyReposts * 3 + Math.floor(Math.random() * 30);
-  
-  const alltimePosts = totalPosts;
-  const alltimeLikes = Math.floor(totalPosts * 4.5 + followers * 0.2);
-  const alltimeComments = Math.floor(totalPosts * 1.2);
-  const alltimeReposts = Math.floor(totalPosts * 0.9);
-  
-  return {
-    daily: { posts: dailyPosts, likes: dailyLikes, comments: dailyComments, reposts: dailyReposts, score: dailyLikes*2 + dailyComments*3 + dailyReposts*4 + dailyPosts*5 },
-    weekly: { posts: weeklyPosts, likes: weeklyLikes, comments: weeklyComments, reposts: weeklyReposts, score: weeklyLikes*2 + weeklyComments*3 + weeklyReposts*4 + weeklyPosts*5 },
-    monthly: { posts: monthlyPosts, likes: monthlyLikes, comments: monthlyComments, reposts: monthlyReposts, score: monthlyLikes*2 + monthlyComments*3 + monthlyReposts*4 + monthlyPosts*5 },
-    alltime: { posts: alltimePosts, likes: alltimeLikes, comments: alltimeComments, reposts: alltimeReposts, score: alltimeLikes*2 + alltimeComments*3 + alltimeReposts*4 + alltimePosts*5 }
-  };
-}
-
-async function fetchUsers() {
-  try {
-    const res = await fetch('/.netlify/functions/xapi');
-    if(!res.ok) throw new Error('API fail');
-    const json = await res.json();
-    if(json.data) return json.data;
-    throw new Error('no data');
-  } catch(e) {
-    console.warn(e);
-    return null;
+// ---------- REAL DATA FETCHING ----------
+async function fetchUserTweets(userId, maxResults = 100) {
+  let allTweets = [];
+  let paginationToken = null;
+  let remaining = maxResults;
+  while (remaining > 0) {
+    let url = `https://api.twitter.com/2/users/${userId}/tweets?max_results=${Math.min(100, remaining)}&tweet.fields=public_metrics,created_at&exclude=retweets`;
+    if (paginationToken) url += `&pagination_token=${paginationToken}`;
+    try {
+      const resp = await fetch(url, { headers: { 'Authorization': `Bearer ${BEARER}` } });
+      if (!resp.ok) throw new Error(`X API error ${resp.status}`);
+      const data = await resp.json();
+      if (data.data && data.data.length) {
+        allTweets = allTweets.concat(data.data);
+        remaining -= data.data.length;
+      }
+      if (data.meta && data.meta.next_token) paginationToken = data.meta.next_token;
+      else break;
+      if (allTweets.length >= maxResults) break;
+    } catch (err) {
+      console.error(`Failed fetching tweets for ${userId}`, err);
+      break;
+    }
   }
+  return allTweets;
 }
 
-function enrichWithMock(users) {
-  return users.map((u, idx) => {
-    const mock = generateMockEngagement(u, idx);
-    return { ...u, engagement: mock };
-  });
+function aggregateEngagement(tweets) {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - 7);
+  const monthStart = new Date(now); monthStart.setDate(now.getDate() - 30);
+  
+  const daily = { posts: 0, likes: 0, comments: 0, reposts: 0, score: 0 };
+  const weekly = { posts: 0, likes: 0, comments: 0, reposts: 0, score: 0 };
+  const monthly = { posts: 0, likes: 0, comments: 0, reposts: 0, score: 0 };
+  const alltime = { posts: 0, likes: 0, comments: 0, reposts: 0, score: 0 };
+  
+  for (const tweet of tweets) {
+    const tweetDate = new Date(tweet.created_at);
+    const metrics = tweet.public_metrics;
+    const like = metrics.like_count || 0;
+    const comment = metrics.reply_count || 0;
+    const repost = metrics.retweet_count || 0;
+    
+    alltime.posts++;
+    alltime.likes += like;
+    alltime.comments += comment;
+    alltime.reposts += repost;
+    
+    if (tweetDate >= todayStart) {
+      daily.posts++;
+      daily.likes += like;
+      daily.comments += comment;
+      daily.reposts += repost;
+    }
+    if (tweetDate >= weekStart) {
+      weekly.posts++;
+      weekly.likes += like;
+      weekly.comments += comment;
+      weekly.reposts += repost;
+    }
+    if (tweetDate >= monthStart) {
+      monthly.posts++;
+      monthly.likes += like;
+      monthly.comments += comment;
+      monthly.reposts += repost;
+    }
+  }
+  
+  const calcScore = (p) => p.likes*2 + p.comments*3 + p.reposts*4 + p.posts*5;
+  daily.score = calcScore(daily);
+  weekly.score = calcScore(weekly);
+  monthly.score = calcScore(monthly);
+  alltime.score = calcScore(alltime);
+  
+  return { daily, weekly, monthly, alltime };
 }
 
-function refreshAllData() {
-  if(!teamData.length) return;
-  enrichedData = enrichWithMock(teamData);
-  renderOverallStats();
-  renderRanking('daily', 'dailyRankList');
-  renderRanking('weekly', 'weeklyPanel');
-  renderRanking('monthly', 'monthlyPanel');
-  renderRanking('alltime', 'alltimePanel');
-  renderAwards();
+async function fetchRealEngagement(user) {
+  const tweets = await fetchUserTweets(user.id, 800); // up to 800 recent tweets
+  return aggregateEngagement(tweets);
 }
 
+// ---------- RENDER FUNCTIONS (unchanged from original except data source) ----------
 function renderOverallStats() {
   let totalLikes = 0, totalComments = 0, totalReposts = 0, totalFollowers = 0;
   enrichedData.forEach(u => {
@@ -735,7 +757,6 @@ function renderAwards() {
     if(sorted[0]) awardList.push({ period: p, winner: sorted[0], score: sorted[0].engagement[p].score });
   });
   
-  // Additional awards based on all-time metrics
   const mostLiked = [...enrichedData].sort((a,b) => b.engagement.alltime.likes - a.engagement.alltime.likes)[0];
   const mostPosted = [...enrichedData].sort((a,b) => (b.public_metrics?.tweet_count || 0) - (a.public_metrics?.tweet_count || 0))[0];
   const mostActive = [...enrichedData].sort((a,b) => b.engagement.alltime.score - a.engagement.alltime.score)[0];
@@ -769,23 +790,19 @@ function renderAwards() {
   `;
 }
 
-// Fetch real tweets from X API v2
-async function fetchUserTweets(userId) {
-  const url = `https://api.twitter.com/2/users/${userId}/tweets?max_results=5&tweet.fields=public_metrics,attachments,text,created_at&expansions=attachments.media_keys&media.fields=url,preview_image_url,type`;
+// ---------- PROFILE MODAL (real tweets) ----------
+async function fetchUserTweetsForModal(userId, limit = 10) {
+  const url = `https://api.twitter.com/2/users/${userId}/tweets?max_results=${limit}&tweet.fields=public_metrics,attachments,text,created_at&expansions=attachments.media_keys&media.fields=url,preview_image_url,type`;
   try {
-    const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${BEARER}` }
-    });
-    if (!res.ok) throw new Error(`X API error: ${res.status}`);
-    const data = await res.json();
-    return data;
+    const resp = await fetch(url, { headers: { 'Authorization': `Bearer ${BEARER}` } });
+    if (!resp.ok) throw new Error(`X API error ${resp.status}`);
+    return await resp.json();
   } catch (err) {
-    console.error("Failed to fetch tweets", err);
+    console.error("Modal tweet fetch error", err);
     return null;
   }
 }
 
-// Render modal with real tweets
 async function openProfileModal(user, activePeriod) {
   const allEng = user.engagement;
   const avatarUrl = user.profile_image_url?.replace('_normal', '_bigger') || '';
@@ -806,7 +823,6 @@ async function openProfileModal(user, activePeriod) {
     `;
   }).join('');
   
-  // Show loading state
   const modalDiv = document.getElementById('modalDynamic');
   modalDiv.innerHTML = `
     <div style="padding:1rem;">
@@ -821,19 +837,15 @@ async function openProfileModal(user, activePeriod) {
   `;
   document.getElementById('profileModal').classList.add('open');
   
-  // Fetch real tweets
-  const tweetData = await fetchUserTweets(user.id);
+  const tweetData = await fetchUserTweetsForModal(user.id, 10);
   let postsHtml = '';
-  let todayPostCount = 0;
-  let todayLikes = 0, todayComments = 0, todayReposts = 0;
+  let todayPostCount = 0, todayLikes = 0, todayComments = 0, todayReposts = 0;
   const todayStr = new Date().toISOString().slice(0,10);
   
   if (tweetData && tweetData.data && tweetData.data.length) {
     const mediaMap = new Map();
     if (tweetData.includes && tweetData.includes.media) {
-      tweetData.includes.media.forEach(media => {
-        mediaMap.set(media.media_key, media);
-      });
+      tweetData.includes.media.forEach(media => mediaMap.set(media.media_key, media));
     }
     for (const tweet of tweetData.data) {
       const tweetDate = tweet.created_at.slice(0,10);
@@ -848,9 +860,7 @@ async function openProfileModal(user, activePeriod) {
       if (tweet.attachments && tweet.attachments.media_keys) {
         for (const mediaKey of tweet.attachments.media_keys) {
           const media = mediaMap.get(mediaKey);
-          if (media && (media.type === 'photo')) {
-            mediaHtml += `<img class="post-img" src="${media.url}" />`;
-          }
+          if (media && media.type === 'photo') mediaHtml += `<img class="post-img" src="${media.url}" />`;
         }
       }
       postsHtml += `
@@ -861,14 +871,12 @@ async function openProfileModal(user, activePeriod) {
         </div>
       `;
     }
-    if (todayPostCount === 0) {
-      postsHtml = `<div style="padding:1rem; text-align:center;">📭 No posts from today.</div>`;
-    }
+    if (todayPostCount === 0) postsHtml = `<div style="padding:1rem; text-align:center;">📭 No posts from today.</div>`;
   } else {
     postsHtml = `<div style="padding:1rem; text-align:center;">⚠️ Could not fetch posts or user has no recent tweets.</div>`;
   }
   
-  const summaryHtml = (todayPostCount > 0) ? `
+  const summaryHtml = todayPostCount > 0 ? `
     <div class="today-summary">
       <strong>📅 Today's Summary</strong><br>
       📝 ${todayPostCount} posts &nbsp;|&nbsp;
@@ -878,7 +886,7 @@ async function openProfileModal(user, activePeriod) {
     </div>
   ` : '';
   
-  const finalHtml = `
+  modalDiv.innerHTML = `
     <div style="padding:1rem;">
       <div style="display:flex; gap:16px; align-items:center; margin-bottom:1rem;">
         <div class="avatar" style="width:70px;height:70px;">${avatarUrl ? `<img src="${avatarUrl}">` : `<div class="avatar-fallback">${(user.name||'U')[0]}</div>`}</div>
@@ -887,28 +895,19 @@ async function openProfileModal(user, activePeriod) {
       <h4 style="margin: 1rem 0 0.5rem 0;">📊 Engagement Breakdown (Posts, Likes, Comments, Reposts)</h4>
       <div class="period-stats-grid">${periodCardsHtml}</div>
       <h4 style="margin: 1rem 0 0.5rem 0;">📝 What @${user.username} posted today</h4>
-      <div class="post-list">
-        ${postsHtml}
-      </div>
+      <div class="post-list">${postsHtml}</div>
       ${summaryHtml}
       <a href="https://x.com/${user.username}" target="_blank" style="display:block; margin:1rem 0; text-align:center; color:var(--gold);">🔗 Visit @${user.username} on X</a>
     </div>
   `;
-  modalDiv.innerHTML = finalHtml;
 }
 
+// ---------- UTILITIES ----------
 function escapeHtml(str) {
   if(!str) return '';
-  return str.replace(/[&<>]/g, function(m) {
-    if(m === '&') return '&amp;';
-    if(m === '<') return '&lt;';
-    if(m === '>') return '&gt;';
-    return m;
-  });
+  return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
 }
-
 function formatNumber(n) { return n > 999999 ? (n/1000000).toFixed(1)+'M' : n > 999 ? (n/1000).toFixed(1)+'K' : n; }
-
 function switchTab(period) {
   document.querySelectorAll('.ranking-panel').forEach(p => p.classList.remove('active-panel'));
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -921,33 +920,58 @@ function switchTab(period) {
   if(activeBtn) activeBtn.classList.add('active');
 }
 
+// ---------- MAIN INIT (real data) ----------
+async function fetchUsersFromLambda() {
+  try {
+    const res = await fetch('/.netlify/functions/xapi');
+    if(!res.ok) throw new Error('Lambda fail');
+    const json = await res.json();
+    if(json.data) return json.data;
+    throw new Error('no data');
+  } catch(e) {
+    console.warn(e);
+    return null;
+  }
+}
+
+async function refreshAllData() {
+  if (!teamData.length) return;
+  // Show loading indicator on first stat brick
+  document.getElementById('alltimeStats').innerHTML = '<div class="stat-brick">Fetching real data...</div>';
+  const updatedUsers = [];
+  for (const user of teamData) {
+    const engagement = await fetchRealEngagement(user);
+    updatedUsers.push({ ...user, engagement });
+  }
+  enrichedData = updatedUsers;
+  renderOverallStats();
+  renderRanking('daily', 'dailyRankList');
+  renderRanking('weekly', 'weeklyPanel');
+  renderRanking('monthly', 'monthlyPanel');
+  renderRanking('alltime', 'alltimePanel');
+  renderAwards();
+}
+
 async function init() {
-  const users = await fetchUsers();
-  if(users && users.length) {
+  const users = await fetchUsersFromLambda();
+  if (users && users.length) {
     teamData = users;
-    enrichedData = enrichWithMock(teamData);
-    renderOverallStats();
-    renderRanking('daily', 'dailyRankList');
-    renderRanking('weekly', 'weeklyPanel');
-    renderRanking('monthly', 'monthlyPanel');
-    renderRanking('alltime', 'alltimePanel');
-    renderAwards();
+    await refreshAllData(); // first real fetch
   } else {
     document.getElementById('dailyRankList').innerHTML = '<div style="padding:2rem;">Failed to fetch users. Check Lambda.</div>';
   }
 }
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    switchTab(btn.dataset.period);
-  });
+  btn.addEventListener('click', () => switchTab(btn.dataset.period));
 });
 document.getElementById('closeModalBtn')?.addEventListener('click', () => document.getElementById('profileModal').classList.remove('open'));
 document.getElementById('profileModal')?.addEventListener('click', (e) => { if(e.target === document.getElementById('profileModal')) document.getElementById('profileModal').classList.remove('open'); });
 document.getElementById('refreshDataBtn')?.addEventListener('click', () => refreshAllData());
 
 init();
-setInterval(() => { if(enrichedData.length) refreshAllData(); }, 3600000);
+// Optional auto-refresh every 30 minutes (adjust as needed)
+setInterval(() => { if (teamData.length) refreshAllData(); }, 1800000);
 </script>
 </body>
 </html>
