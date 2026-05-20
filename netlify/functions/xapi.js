@@ -12,6 +12,15 @@ exports.handler = async function(event, context) {
     "safinbarzany"
   ];
 
+  // Pick range from query param, default to daily
+  const range = event.queryStringParameters?.range || "daily";
+  const rangeMap = { daily: 1, weekly: 7, monthly: 30 };
+  const days = rangeMap[range] || 1;
+  const startTime = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  // Increase max_results for longer ranges
+  const maxResults = range === "monthly" ? 100 : range === "weekly" ? 50 : 10;
+
   try {
     const userUrl = `https://api.twitter.com/2/users/by?usernames=${REQUIRED_HANDLES.join(",")}&user.fields=public_metrics,profile_image_url,description,name`;
     const userRes = await fetch(userUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
@@ -22,8 +31,6 @@ exports.handler = async function(event, context) {
       userData.data.forEach(u => foundMap.set(u.username.toLowerCase(), u));
     }
 
-    const oneDayAgo = new Date(Date.now() - 24*60*60*1000).toISOString();
-    
     const usersWithTweets = await Promise.all(REQUIRED_HANDLES.map(async (handle) => {
       let user = foundMap.get(handle.toLowerCase());
       let isPlaceholder = false;
@@ -41,7 +48,7 @@ exports.handler = async function(event, context) {
       let tweets = [];
       if (!isPlaceholder) {
         try {
-          const tweetsUrl = `https://api.twitter.com/2/users/${user.id}/tweets?tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,preview_image_url&max_results=10&start_time=${oneDayAgo}`;
+          const tweetsUrl = `https://api.twitter.com/2/users/${user.id}/tweets?tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,preview_image_url&max_results=${maxResults}&start_time=${startTime}`;
           const tweetsRes = await fetch(tweetsUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
           const tweetsJson = await tweetsRes.json();
           const rawTweets = tweetsJson.data || [];
@@ -74,7 +81,7 @@ exports.handler = async function(event, context) {
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ data: usersWithTweets })
+      body: JSON.stringify({ range, data: usersWithTweets })
     };
   } catch (error) {
     return {
