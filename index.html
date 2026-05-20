@@ -165,7 +165,7 @@ body {
   background: rgba(45,212,191,0.05);
 }
 
-.stat-number {
+.text-number, .stat-number {
   font-family: 'Space Grotesk', monospace;
   font-size: 1.8rem;
   font-weight: 700;
@@ -590,7 +590,7 @@ const HANDLES = ["zbriefkani","haidari_ii","K992Zhraa","shang_salar","fenk24","a
 let teamData = [];
 let enrichedData = [];
 
-// FIXED: Computes real metrics matching the calendar timeline directly
+// FIXED: Now accurately targets 'public_metrics' nested properties sent by the X v2 API payload 
 function generateMockEngagement(user, seedOffset = 0) {
   const liveTweets = user.tweets || [];
   const now = new Date();
@@ -608,22 +608,31 @@ function generateMockEngagement(user, seedOffset = 0) {
     const tDate = new Date(t.created_at);
     const diff = now - tDate;
 
+    // Fixed mapping check to safely target nested X API data properties
+    const tweetLikes = t.public_metrics?.like_count ?? t.like_count ?? 0;
+    const tweetComments = t.public_metrics?.reply_count ?? t.reply_count ?? 0;
+
     alltime.posts++;
-    alltime.likes += (t.like_count || 0);
-    alltime.comments += (t.reply_count || 0);
+    alltime.likes += tweetLikes;
+    alltime.comments += tweetComments;
 
     if (diff <= oneDay) {
-      daily.posts++; daily.likes += (t.like_count || 0); daily.comments += (t.reply_count || 0);
+      daily.posts++; 
+      daily.likes += tweetLikes; 
+      daily.comments += tweetComments;
     }
     if (diff <= sevenDays) {
-      weekly.posts++; weekly.likes += (t.like_count || 0); weekly.comments += (t.reply_count || 0);
+      weekly.posts++; 
+      weekly.likes += tweetLikes; 
+      weekly.comments += tweetComments;
     }
     if (diff <= thirtyDays) {
-      monthly.posts++; monthly.likes += (t.like_count || 0); monthly.comments += (t.reply_count || 0);
+      monthly.posts++; 
+      monthly.likes += tweetLikes; 
+      monthly.comments += tweetComments;
     }
   });
 
-  // If there are no recent posts loaded, all-time falls back safely to total profile posts count
   if (alltime.posts === 0) {
     alltime.posts = user.public_metrics?.tweet_count || 0;
   }
@@ -706,7 +715,6 @@ function renderRanking(periodKey, containerId) {
   let target = document.getElementById(containerId);
   if(!target) return;
   
-  // FIXED: Automatically maps inner layout container structure safely across all your panel buttons
   if (containerId.endsWith('Panel')) {
     target.innerHTML = '<div class="rank-container"></div>';
     target = target.querySelector('.rank-container');
@@ -835,9 +843,13 @@ async function openProfileModal(user, activePeriod) {
   
   if (tweetData && tweetData.data && tweetData.data.length) {
     for (const tweet of tweetData.data) {
+      // FIXED: Also corrected metric targeting when parsing single profile tweet logs inside the modal view
+      const tLikes = tweet.public_metrics?.like_count ?? tweet.like_count ?? 0;
+      const tComments = tweet.public_metrics?.reply_count ?? tweet.reply_count ?? 0;
+
       todayPostCount++;
-      todayLikes += tweet.like_count || 0;
-      todayComments += tweet.reply_count || 0;
+      todayLikes += tLikes;
+      todayComments += tComments;
       
       let mediaHtml = '';
       if (tweet.media_url) {
@@ -847,7 +859,7 @@ async function openProfileModal(user, activePeriod) {
         <div class="post-item">
           <div class="post-text">${escapeHtml(tweet.text)}</div>
           ${mediaHtml}
-          <div class="post-engagement">❤️ ${tweet.like_count || 0} · 💬 ${tweet.reply_count || 0}</div>
+          <div class="post-engagement">❤️ ${tLikes} · 💬 ${tComments}</div>
         </div>
       `;
     }
