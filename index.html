@@ -522,6 +522,14 @@ body {
   gap: 10px;
   flex-wrap: wrap;
 }
+.today-summary {
+  background: rgba(45,212,191,0.1);
+  border-radius: 20px;
+  padding: 0.8rem;
+  margin-top: 1rem;
+  text-align: center;
+  border: 1px solid var(--accent-cyan);
+}
 </style>
 </head>
 <body>
@@ -573,7 +581,7 @@ body {
 </div>
 
 <script>
-const BEARER="AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAAuX5QA3jwd0G3TyB7C5fVwkqIx24%3Dxy64eGFbzC7SzRBPApsUJUy1CXkleLPhGJXyvbp3SfsSnMeKoe";
+const BEARER = "AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAAuX5QA3jwd0G3TyB7C5fVwkqIx24%3Dxy64eGFbzC7SzRBPApsUJUy1CXkleLPhGJXyvbp3SfsSnMeKoe";
 const HANDLES = ["zbriefkani","haidari_ii","K992Zhraa","shang_salar","fenk24","adamrizgar","mohammed_fayeqA","ahmed_hazharr","safinbarzany"];
 let teamData = [];
 let enrichedData = [];
@@ -735,7 +743,24 @@ function renderAwards() {
   `).join('');
 }
 
-function openProfileModal(user, activePeriod) {
+// Fetch real tweets from X API v2
+async function fetchUserTweets(userId) {
+  const url = `https://api.twitter.com/2/users/${userId}/tweets?max_results=5&tweet.fields=public_metrics,attachments,text,created_at&expansions=attachments.media_keys&media.fields=url,preview_image_url,type`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${BEARER}` }
+    });
+    if (!res.ok) throw new Error(`X API error: ${res.status}`);
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.error("Failed to fetch tweets", err);
+    return null;
+  }
+}
+
+// Render modal with real tweets
+async function openProfileModal(user, activePeriod) {
   const allEng = user.engagement;
   const avatarUrl = user.profile_image_url?.replace('_normal', '_bigger') || '';
   const periods = ['daily', 'weekly', 'monthly', 'alltime'];
@@ -755,18 +780,7 @@ function openProfileModal(user, activePeriod) {
     `;
   }).join('');
   
-  const mockPosts = [];
-  const postCount = Math.min(3, Math.floor(Math.random() * 3) + 2);
-  for(let i=0; i<postCount; i++) {
-    mockPosts.push({
-      text: `Sample update from @${user.username} about market insights #XCommunity ${i+1}`,
-      likes: Math.floor(allEng.daily.likes / (postCount+1)) + i*2,
-      comments: Math.floor(allEng.daily.comments / (postCount+1)),
-      reposts: Math.floor(allEng.daily.reposts / (postCount+1)),
-      image: null
-    });
-  }
-  
+  // Show loading state
   const modalDiv = document.getElementById('modalDynamic');
   modalDiv.innerHTML = `
     <div style="padding:1rem;">
@@ -774,28 +788,87 @@ function openProfileModal(user, activePeriod) {
         <div class="avatar" style="width:70px;height:70px;">${avatarUrl ? `<img src="${avatarUrl}">` : `<div class="avatar-fallback">${(user.name||'U')[0]}</div>`}</div>
         <div><h2>${escapeHtml(user.name || user.username)}</h2><div>@${user.username}</div></div>
       </div>
-      
       <h4 style="margin: 1rem 0 0.5rem 0;">📊 Engagement Breakdown (Posts, Likes, Comments, Reposts)</h4>
-      <div class="period-stats-grid">
-        ${periodCardsHtml}
-      </div>
-      
-      <div style="margin: 1rem 0; background:#0a0a18; border-radius: 20px; padding:1rem;">
-        <h4>📝 Latest posts (example)</h4>
-        <div class="post-list">
-          ${mockPosts.map(p => `
-            <div class="post-item">
-              <div class="post-text">${p.text}</div>
-              ${p.image ? `<img class="post-img" src="${p.image}" />` : ''}
-              <div class="post-engagement">❤️ ${p.likes} · 💬 ${p.comments} · 🔄 ${p.reposts}</div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-      <a href="https://x.com/${user.username}" target="_blank" style="display:block; margin:1rem 0; text-align:center; color:var(--gold);">🔗 Visit @${user.username} on X</a>
+      <div class="period-stats-grid">${periodCardsHtml}</div>
+      <div style="text-align:center; padding:2rem;">⏳ Loading today's posts from X...</div>
     </div>
   `;
   document.getElementById('profileModal').classList.add('open');
+  
+  // Fetch real tweets
+  const tweetData = await fetchUserTweets(user.id);
+  let postsHtml = '';
+  let todayPostCount = 0;
+  let todayLikes = 0, todayComments = 0, todayReposts = 0;
+  const todayStr = new Date().toISOString().slice(0,10);
+  
+  if (tweetData && tweetData.data && tweetData.data.length) {
+    const mediaMap = new Map();
+    if (tweetData.includes && tweetData.includes.media) {
+      tweetData.includes.media.forEach(media => {
+        mediaMap.set(media.media_key, media);
+      });
+    }
+    for (const tweet of tweetData.data) {
+      const tweetDate = tweet.created_at.slice(0,10);
+      const isToday = (tweetDate === todayStr);
+      if (isToday) {
+        todayPostCount++;
+        todayLikes += tweet.public_metrics.like_count || 0;
+        todayComments += tweet.public_metrics.reply_count || 0;
+        todayReposts += tweet.public_metrics.retweet_count || 0;
+      }
+      let mediaHtml = '';
+      if (tweet.attachments && tweet.attachments.media_keys) {
+        for (const mediaKey of tweet.attachments.media_keys) {
+          const media = mediaMap.get(mediaKey);
+          if (media && (media.type === 'photo')) {
+            mediaHtml += `<img class="post-img" src="${media.url}" />`;
+          }
+        }
+      }
+      postsHtml += `
+        <div class="post-item">
+          <div class="post-text">${escapeHtml(tweet.text)}</div>
+          ${mediaHtml}
+          <div class="post-engagement">❤️ ${tweet.public_metrics.like_count || 0} · 💬 ${tweet.public_metrics.reply_count || 0} · 🔁 ${tweet.public_metrics.retweet_count || 0}</div>
+        </div>
+      `;
+    }
+    if (todayPostCount === 0) {
+      postsHtml = `<div style="padding:1rem; text-align:center;">📭 No posts from today.</div>`;
+    }
+  } else {
+    postsHtml = `<div style="padding:1rem; text-align:center;">⚠️ Could not fetch posts or user has no recent tweets.</div>`;
+  }
+  
+  const summaryHtml = (todayPostCount > 0) ? `
+    <div class="today-summary">
+      <strong>📅 Today's Summary</strong><br>
+      📝 ${todayPostCount} posts &nbsp;|&nbsp;
+      ❤️ ${todayLikes} likes &nbsp;|&nbsp;
+      💬 ${todayComments} comments &nbsp;|&nbsp;
+      🔁 ${todayReposts} reposts
+    </div>
+  ` : '';
+  
+  const finalHtml = `
+    <div style="padding:1rem;">
+      <div style="display:flex; gap:16px; align-items:center; margin-bottom:1rem;">
+        <div class="avatar" style="width:70px;height:70px;">${avatarUrl ? `<img src="${avatarUrl}">` : `<div class="avatar-fallback">${(user.name||'U')[0]}</div>`}</div>
+        <div><h2>${escapeHtml(user.name || user.username)}</h2><div>@${user.username}</div></div>
+      </div>
+      <h4 style="margin: 1rem 0 0.5rem 0;">📊 Engagement Breakdown (Posts, Likes, Comments, Reposts)</h4>
+      <div class="period-stats-grid">${periodCardsHtml}</div>
+      <h4 style="margin: 1rem 0 0.5rem 0;">📝 What @${user.username} posted today</h4>
+      <div class="post-list">
+        ${postsHtml}
+      </div>
+      ${summaryHtml}
+      <a href="https://x.com/${user.username}" target="_blank" style="display:block; margin:1rem 0; text-align:center; color:var(--gold);">🔗 Visit @${user.username} on X</a>
+    </div>
+  `;
+  modalDiv.innerHTML = finalHtml;
 }
 
 function escapeHtml(str) {
