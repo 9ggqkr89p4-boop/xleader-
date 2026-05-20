@@ -46,6 +46,7 @@ exports.handler = async function(event, context) {
         }));
         return { ...user, tweets: formattedTweets };
       } catch (err) {
+        console.error(`Failed for ${user.username}:`, err.message);
         return { ...user, tweets: [], tweetsError: err.message };
       }
     }));
