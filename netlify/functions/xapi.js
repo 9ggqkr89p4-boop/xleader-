@@ -1,23 +1,26 @@
-exports.handler = async function(event, context) {
+Exports.handler = async function(event, context) {
   const BEARER = "AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAAuX5QA3jwd0G3TyB7C5fVwkqIx24%3Dxy64eGFbzC7SzRBPApsUJUy1CXkleLPhGJXyvbp3SfsSnMeKoe";
+  // The 9 required usernames (exactly as you want them to appear)
   const REQUIRED_HANDLES = [
     "zbriefkani",
     "haidari_ii",
-    "K992Zhraa",
+    "K99Zhraa",
     "shang_salar",
+    "mejpuk",
     "fenk24",
     "adamrizgar",
-    "Mohammed_FayeqA",
+    "Mohammed_FayeqA",   // case‑sensitive – adjust if needed
     "ahmed_hazharr",
-    "safinbarzany",
-    "MEJPUK"
+    "safinbarzany"
   ];
 
   try {
+    // Fetch user details for all handles (only those that exist)
     const userUrl = `https://api.twitter.com/2/users/by?usernames=${REQUIRED_HANDLES.join(",")}&user.fields=public_metrics,profile_image_url,description,name`;
     const userRes = await fetch(userUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
     const userData = await userRes.json();
     
+    // Map found users by lowercase username
     const foundMap = new Map();
     if (userData.data) {
       userData.data.forEach(u => foundMap.set(u.username.toLowerCase(), u));
@@ -25,7 +28,8 @@ exports.handler = async function(event, context) {
 
     const oneDayAgo = new Date(Date.now() - 24*60*60*1000).toISOString();
     
-    const usersWithTweets = await Promise.all(REQUIRED_HANDLES.map(async (handle) => {
+    // Process each required handle – create placeholder if missing
+    const usersWithTweets = await Promise.all(REQUIRED_HANDLES.map(async (handle, idx) => {
       let user = foundMap.get(handle.toLowerCase());
       let isPlaceholder = false;
       if (!user) {
@@ -39,31 +43,37 @@ exports.handler = async function(event, context) {
         };
       }
       
+      // Fetch tweets only for real users (skip placeholders)
       let tweets = [];
       if (!isPlaceholder) {
         try {
-          const tweetsUrl = `https://api.twitter.com/2/users/${user.id}/tweets?tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,preview_image_url&max_results=10&start_time=${oneDayAgo}`;
-          const tweetsRes = await fetch(tweetsUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
-          const tweetsJson = await tweetsRes.json();
-          const rawTweets = tweetsJson.data || [];
-          
-          const mediaMap = new Map();
-          if (tweetsJson.includes?.media) {
-            tweetsJson.includes.media.forEach(media => {
-              mediaMap.set(media.media_key, media.url || media.preview_image_url);
-            });
+          // Get user ID
+          const idUrl = `https://api.twitter.com/2/users/by/username/${user.username}`;
+          const idRes = await fetch(idUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
+          const idJson = await idRes.json();
+          if (idJson.data) {
+            const userId = idJson.data.id;
+            const tweetsUrl = `https://api.twitter.com/2/users/${userId}/tweets?tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,preview_image_url&max_results=10&start_time=${oneDayAgo}`;
+            const tweetsRes = await fetch(tweetsUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
+            const tweetsJson = await tweetsRes.json();
+            const rawTweets = tweetsJson.data || [];
+            const mediaMap = new Map();
+            if (tweetsJson.includes?.media) {
+              tweetsJson.includes.media.forEach(media => {
+                mediaMap.set(media.media_key, media.url || media.preview_image_url);
+              });
+            }
+            tweets = rawTweets.map(tweet => ({
+              id: tweet.id,
+              text: tweet.text,
+              created_at: tweet.created_at,
+              like_count: tweet.public_metrics?.like_count || 0,
+              reply_count: tweet.public_metrics?.reply_count || 0,
+              retweet_count: tweet.public_metrics?.retweet_count || 0,
+              media_url: tweet.attachments?.media_keys?.[0] ? (mediaMap.get(tweet.attachments.media_keys[0]) || null) : null,
+              tweet_url: `https://twitter.com/${user.username}/status/${tweet.id}`
+            }));
           }
-          
-          tweets = rawTweets.map(tweet => ({
-            id: tweet.id,
-            text: tweet.text,
-            created_at: tweet.created_at,
-            like_count: tweet.public_metrics?.like_count || 0,
-            reply_count: tweet.public_metrics?.reply_count || 0,
-            retweet_count: tweet.public_metrics?.retweet_count || 0,
-            media_url: tweet.attachments?.media_keys?.[0] ? (mediaMap.get(tweet.attachments.media_keys[0]) || null) : null,
-            tweet_url: `https://twitter.com/${user.username}/status/${tweet.id}`
-          }));
         } catch (err) {
           console.error(`Tweet fetch failed for ${handle}:`, err.message);
         }
