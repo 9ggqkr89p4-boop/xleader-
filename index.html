@@ -103,6 +103,7 @@ body {
 .daily-totals { background: rgba(0,0,0,0.4); border-radius: 20px; padding: 0.8rem; margin: 0 1rem 1rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .close-modal { position: sticky; top: 10px; left: 90%; background: var(--gold); border: none; width: 32px; height: 32px; border-radius: 30px; cursor: pointer; font-weight: bold; z-index: 10; }
 .refresh-btn { background: var(--gold); border: none; padding: 8px 20px; border-radius: 40px; font-family: 'Space Grotesk', monospace; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.debug-panel { background: rgba(255,50,50,0.1); border-left: 3px solid #ff5555; margin: 1rem 0; padding: 0.8rem; font-size: 0.7rem; border-radius: 8px; }
 </style>
 </head>
 <body>
@@ -120,6 +121,7 @@ body {
   <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
     <button id="manualRefreshBtn" class="refresh-btn">🔄 REFRESH NOW</button>
   </div>
+  <div id="debugPanel" class="debug-panel" style="display: none;"></div>
   <div class="tab-nav">
     <button class="tab-btn active" data-period="daily">📆 DAILY RANK</button>
     <button class="tab-btn" data-period="weekly">📊 WEEKLY RANK</button>
@@ -139,6 +141,7 @@ body {
 <script>
 const LAMBDA_URL = "/.netlify/functions/xapi";
 let enrichedData = [];
+let debugErrors = [];
 const memberColors = ["#FF6B9D","#00C6FF","#7C3AED","#10B981","#F97316","#06B6D4","#84CC16","#F59E0B","#EC4899"];
 
 function formatNumber(n) { if(n===undefined) return '0'; return n>999999?(n/1000000).toFixed(1)+'M':n>999?(n/1000).toFixed(1)+'K':String(n); }
@@ -160,7 +163,12 @@ async function fetchAllData() {
   const json = await res.json();
   if(!json.data || !Array.isArray(json.data)) throw new Error('Invalid response');
   const users = json.data;
-  return users.map((user, idx) => {
+  // Collect any errors from individual users
+  const errors = [];
+  const processed = users.map((user, idx) => {
+    if (user.tweetsError) {
+      errors.push(`@${user.username}: ${user.tweetsError}`);
+    }
     const dailyData = processDailyData(user.tweets || []);
     return {
       ...user,
@@ -171,13 +179,23 @@ async function fetchAllData() {
       alltime: { likes: (user.public_metrics?.tweet_count||0)*4.5, replies: (user.public_metrics?.tweet_count||0)*1.2, retweets: (user.public_metrics?.tweet_count||0)*0.9, score: (user.public_metrics?.tweet_count||0)*10 + (user.public_metrics?.followers_count||0)*0.5 }
     };
   });
+  return { data: processed, errors };
 }
 
 async function refreshDashboard() {
   const btn = document.getElementById('manualRefreshBtn');
+  const debugDiv = document.getElementById('debugPanel');
   if(btn) { btn.disabled = true; btn.textContent = '⟳ SYNCING...'; }
   try {
-    enrichedData = await fetchAllData();
+    const { data, errors } = await fetchAllData();
+    enrichedData = data;
+    debugErrors = errors;
+    if (errors.length > 0) {
+      debugDiv.style.display = 'block';
+      debugDiv.innerHTML = `<strong>⚠️ Some users had errors:</strong><br>${errors.join('<br>')}`;
+    } else {
+      debugDiv.style.display = 'none';
+    }
     renderOverallStats();
     renderRanking('daily', 'dailyRankList');
     renderRanking('weekly', 'weeklyPanel');
@@ -187,6 +205,8 @@ async function refreshDashboard() {
   } catch(e) {
     console.error(e);
     document.getElementById('dailyRankList').innerHTML = '<div style="padding:2rem; text-align:center;">⚠️ Failed to load real data. Check Lambda function and bearer token.</div>';
+    debugDiv.style.display = 'block';
+    debugDiv.innerHTML = `<strong>❌ Lambda error:</strong> ${e.message}`;
   } finally {
     if(btn) { btn.disabled = false; btn.textContent = '🔄 REFRESH NOW'; }
   }
