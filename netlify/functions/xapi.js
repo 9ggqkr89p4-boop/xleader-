@@ -1,52 +1,51 @@
 exports.handler = async function(event, context) {
   const BEARER = "AAAAAAAAAAAAAAAAAAAAALeV9gEAAAAAuX5QA3jwd0G3TyB7C5fVwkqIx24%3Dxy64eGFbzC7SzRBPApsUJUy1CXkleLPhGJXyvbp3SfsSnMeKoe";
-  // CORRECTED HANDLES (based on your screenshot and actual X usernames)
-  const HANDLES = [
+  // The 9 required usernames (exactly as you want them to appear)
+  const REQUIRED_HANDLES = [
     "zbriefkani",
     "haidari_ii",
-    "K99Zhraa",        // was K992Zhraa – fixed
+    "K99Zhraa",
     "shang_salar",
     "fenk24",
     "adamrizgar",
-    "mohammed_fayeqA",
+    "Mohammed_FayeqA",   // case‑sensitive – adjust if needed
     "ahmed_hazharr",
     "safinbarzany"
   ];
 
   try {
-    // 1. Fetch user details for all handles
-    const userUrl = `https://api.twitter.com/2/users/by?usernames=${HANDLES.join(",")}&user.fields=public_metrics,profile_image_url,description,name`;
+    // Fetch user details for all handles (only those that exist)
+    const userUrl = `https://api.twitter.com/2/users/by?usernames=${REQUIRED_HANDLES.join(",")}&user.fields=public_metrics,profile_image_url,description,name`;
     const userRes = await fetch(userUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
     const userData = await userRes.json();
     
-    // Build a map of found users
-    const foundUsers = new Map();
+    // Map found users by lowercase username
+    const foundMap = new Map();
     if (userData.data) {
-      userData.data.forEach(u => foundUsers.set(u.username.toLowerCase(), u));
+      userData.data.forEach(u => foundMap.set(u.username.toLowerCase(), u));
     }
-    // Track missing handles
-    const missingHandles = HANDLES.filter(h => !foundUsers.has(h.toLowerCase()));
-    
-    const oneDayAgo = new Date(Date.now() - 24*60*60*1000).toISOString();
 
-    // Process each handle: if missing, create placeholder user
-    const usersWithTweets = await Promise.all(HANDLES.map(async (handle) => {
-      let user = foundUsers.get(handle.toLowerCase());
+    const oneDayAgo = new Date(Date.now() - 24*60*60*1000).toISOString();
+    
+    // Process each required handle – create placeholder if missing
+    const usersWithTweets = await Promise.all(REQUIRED_HANDLES.map(async (handle, idx) => {
+      let user = foundMap.get(handle.toLowerCase());
+      let isPlaceholder = false;
       if (!user) {
-        // Placeholder for missing user
+        isPlaceholder = true;
         user = {
           username: handle,
           name: handle,
           public_metrics: { tweet_count: 0, followers_count: 0, following_count: 0 },
           profile_image_url: null,
-          description: null,
-          missing: true
+          description: null
         };
       }
-      // Try to fetch tweets (skip if missing)
+      
+      // Fetch tweets only for real users (skip placeholders)
       let tweets = [];
-      try {
-        if (!user.missing) {
+      if (!isPlaceholder) {
+        try {
           // Get user ID
           const idUrl = `https://api.twitter.com/2/users/by/username/${user.username}`;
           const idRes = await fetch(idUrl, { headers: { "Authorization": `Bearer ${BEARER}` } });
@@ -74,17 +73,18 @@ exports.handler = async function(event, context) {
               tweet_url: `https://twitter.com/${user.username}/status/${tweet.id}`
             }));
           }
+        } catch (err) {
+          console.error(`Tweet fetch failed for ${handle}:`, err.message);
         }
-      } catch (err) {
-        console.error(`Tweet fetch failed for ${handle}:`, err.message);
       }
-      return { ...user, tweets, missing: user.missing || false };
+      
+      return { ...user, tweets, placeholder: isPlaceholder };
     }));
 
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ data: usersWithTweets, missing: missingHandles })
+      body: JSON.stringify({ data: usersWithTweets })
     };
   } catch (error) {
     return {
