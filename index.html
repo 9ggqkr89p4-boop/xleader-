@@ -613,10 +613,10 @@ function parseRealEngagement(user) {
   const alltimeReposts = Math.floor(totalPosts * 0.8);
   
   return {
-    daily: { posts: dailyPosts, likes: dailyLikes, comments: dailyComments, reposts: dailyReposts, score: dailyLikes*3 + dailyComments*5 + dailyReposts*1 + dailyPosts*10 },
-    weekly: { posts: weeklyPosts, likes: weeklyLikes, comments: weeklyComments, reposts: weeklyReposts, score: weeklyLikes*3 + weeklyComments*5 + weeklyReposts*1 + weeklyPosts*10 },
-    monthly: { posts: monthlyPosts, likes: monthlyLikes, comments: monthlyComments, reposts: monthlyReposts, score: monthlyLikes*3 + monthlyComments*5 + monthlyReposts*1 + monthlyPosts*10 },
-    alltime: { posts: alltimePosts, likes: alltimeLikes, comments: alltimeComments, reposts: alltimeReposts, score: alltimeLikes*3 + alltimeComments*5 + alltimeReposts*1 + alltimePosts*10 }
+    daily: { posts: dailyPosts, likes: dailyLikes, comments: dailyComments, reposts: dailyReposts, score: dailyLikes*2 + dailyComments*3 + dailyReposts*4 + dailyPosts*5 },
+    weekly: { posts: weeklyPosts, likes: weeklyLikes, comments: weeklyComments, reposts: weeklyReposts, score: weeklyLikes*2 + weeklyComments*3 + weeklyReposts*4 + weeklyPosts*5 },
+    monthly: { posts: monthlyPosts, likes: monthlyLikes, comments: monthlyComments, reposts: monthlyReposts, score: monthlyLikes*2 + monthlyComments*3 + monthlyReposts*4 + monthlyPosts*5 },
+    alltime: { posts: alltimePosts, likes: alltimeLikes, comments: alltimeComments, reposts: alltimeReposts, score: alltimeLikes*2 + alltimeComments*3 + alltimeReposts*4 + alltimePosts*5 }
   };
 }
 
@@ -722,25 +722,43 @@ function renderRanking(periodKey, containerId) {
 }
 
 function renderAwards() {
-  const periods = ['daily', 'weekly', 'monthly'];
+  const periods = ['daily','weekly','monthly','alltime'];
   const awardList = [];
   periods.forEach(p => {
     const sorted = getRanking(p);
     if(sorted[0]) awardList.push({ period: p, winner: sorted[0], score: sorted[0].engagement[p].score });
   });
   
+  const mostLiked = [...teamData].sort((a,b) => b.engagement.alltime.likes - a.engagement.alltime.likes)[0];
+  const mostPosted = [...teamData].sort((a,b) => (b.public_metrics?.tweet_count || 0) - (a.public_metrics?.tweet_count || 0))[0];
+  const mostActive = [...teamData].sort((a,b) => b.engagement.alltime.score - a.engagement.alltime.score)[0];
+  const mostComments = [...teamData].sort((a,b) => b.engagement.alltime.comments - a.engagement.alltime.comments)[0];
+  const mostReposts = [...teamData].sort((a,b) => b.engagement.alltime.reposts - a.engagement.alltime.reposts)[0];
+  
+  const extraAwards = [
+    { icon: "🏆", title: "Most Liked (All-Time)", winner: mostLiked, value: mostLiked?.engagement.alltime.likes, suffix: "likes" },
+    { icon: "📝", title: "Most Posted (All-Time)", winner: mostPosted, value: mostPosted?.public_metrics?.tweet_count, suffix: "posts" },
+    { icon: "⚡", title: "Most Active (All-Time)", winner: mostActive, value: mostActive?.engagement.alltime.score, suffix: "pts" },
+    { icon: "💬", title: "Most Comments (All-Time)", winner: mostComments, value: mostComments?.engagement.alltime.comments, suffix: "comments" },
+    { icon: "🔁", title: "Most Reposts (All-Time)", winner: mostReposts, value: mostReposts?.engagement.alltime.reposts, suffix: "reposts" }
+  ];
+  
   const container = document.getElementById('awardsContainer');
   container.innerHTML = `
     <div style="grid-column: 1/-1; margin-bottom: 0.5rem;"><h3 style="color: var(--gold);">🏅 Period Winners</h3></div>
-    ${awardList.map(aw => {
-      let icon = aw.period === 'daily' ? '🏅' : aw.period === 'weekly' ? '⚡' : '🌟';
-      return `
-        <div class="award-card">
-          <div style="font-size:2rem;">${icon}</div>
-          <div><strong>${escapeHtml(aw.winner.name || aw.winner.username)}</strong><br><span style="font-size:0.7rem;">Top ${aw.period.toUpperCase()} · ${aw.score} pts</span></div>
-        </div>
-      `;
-    }).join('')}
+    ${awardList.map(aw => `
+      <div class="award-card">
+        <div style="font-size:2rem;">${aw.period === 'daily' ? '🏅' : aw.period === 'weekly' ? '⚡' : aw.period === 'monthly' ? '🌟' : '👑'}</div>
+        <div><strong>${escapeHtml(aw.winner.name || aw.winner.username)}</strong><br><span style="font-size:0.7rem;">Top ${aw.period.toUpperCase()} · ${aw.score} pts</span></div>
+      </div>
+    `).join('')}
+    <div style="grid-column: 1/-1; margin: 1rem 0 0.5rem 0;"><h3 style="color: var(--accent-cyan);">🏆 All‑Time Special Awards</h3></div>
+    ${extraAwards.map(aw => `
+      <div class="award-card">
+        <div style="font-size:2rem;">${aw.icon}</div>
+        <div><strong>${escapeHtml(aw.winner?.name || aw.winner?.username || "—")}</strong><br><span style="font-size:0.7rem;">${aw.title}<br>${aw.value?.toLocaleString()} ${aw.suffix}</span></div>
+      </div>
+    `).join('')}
   `;
 }
 
